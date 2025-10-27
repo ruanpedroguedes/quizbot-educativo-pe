@@ -9,6 +9,7 @@
 * Antonio Lemos
 * Gabriel Afonso
 * João Lucas
+* Jairo Marinho
 
 ---
 
