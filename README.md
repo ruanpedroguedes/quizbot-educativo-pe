@@ -10,6 +10,7 @@
 * Gabriel Afonso
 * João Lucas
 * Jairo Marinho
+* Dandara Gouveia
 
 ---
 
