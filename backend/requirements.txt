@@ -3,3 +3,7 @@ numpy
 transformers
 torch
 sentencepiece
+torchvision
+cv2
+opencv-python
+matplotlib
