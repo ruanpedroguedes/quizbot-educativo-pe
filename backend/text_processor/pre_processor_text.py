@@ -21,7 +21,7 @@ class QuestionProcessor:
         for texto in textos:
             texto_processado = self.preprocess_text(texto)
 
-            input = self.tokenizer(
+            inputs = self.tokenizer(
                 texto_processado,
                 return_tensors='pt',
                 padding=True,
@@ -29,5 +29,12 @@ class QuestionProcessor:
                 max_length=512,
                 return_attention_mask=True
             )
+
+            # Gera os embeddings sem calculo de gradiente
+            with torch.no_grad():
+                outputs = self.model(**inputs)
+
+                embedding = outputs.last_hidden_state[:, 0, :].cpu().numpy()
+                embeddings.append(embedding[0])
 
             return np.array(embeddings)
