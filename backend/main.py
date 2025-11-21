@@ -1,54 +1,83 @@
-from text_processor.perguntas_respostas import QuestionAnswerSystem
+from text_processor.perguntas_respostas import QuizSystem
 import pandas as pd
 
 def main():
-    qa_system = QuestionAnswerSystem()
+    quiz_system = QuizSystem()
 
     df = pd.read_json('datasets/dataset_pernambuco_25_turistas.json') 
-    qa_system.treinamento(df)
+    quiz_system.treinamento(df)
 
-    print("🏖️  Bem-vindo ao Assistente de Turismo de Pernambuco!")
-    print("💡 **Comandos disponíveis:**")
-    print("   - 'tags' → Ver todas as categorias")
-    print("   - 'tag [nome]' → Buscar por tag específica (ex: 'tag praia')")
-    print("   - 'sair' → Encerrar")
-    print()
+    print("🎯 BEM-VINDO AO QUIZ TURÍSTICO DE PERNAMBUCO!")
+    print("=" * 50)
+    print("COMO JOGAR:")
+    print("• 'quiz' - Quiz aleatório")
+    print("• 'quiz [tema]' - Quiz sobre um tema (ex: 'quiz praia')")
+    print("• 'pontos' - Ver sua pontuação")
+    print("• 'desistir' - Revelar resposta atual")
+    print("• 'reset' - Resetar pontuação")
+    print("• 'temas' - Ver temas disponíveis")
+    print("• 'sair' - Encerrar")
+    print("=" * 50)
     
     while True: 
-        user_input = input("👤 Você: ").strip()
+        user_input = input("\n🎮 Comando: ").strip()
         
         if user_input.lower() == 'sair':
-            print("🤖 Até logo! Boas viagens! 🌴")
+            print(f"\n🏆 Pontuação final: {quiz_system.get_pontuacao()}")
+            print("Obrigado por jogar! Até a próxima! 🌴")
             break
-        elif user_input.lower() == 'tags':
-            print(f"\n🤖 {qa_system.listar_tags()}\n")
-            continue
-        elif user_input.lower().startswith('tag '):
-            tag_especifica = user_input[4:].strip()
-            if tag_especifica:
-                resultados = qa_system.buscar_por_tag_especifica(tag_especifica)
-                if resultados:
-                    resposta = qa_system.formatar_multiplas_respostas(resultados)
-                    print(f"\n🤖 Bot: {resposta}\n")
-                else:
-                    print(f"\n🤖 Bot: Nenhum local encontrado com a tag '{tag_especifica}'\n")
-            continue
             
-        # Busca normal com suporte a tags
-        results = qa_system.melhor_resposta(user_input, top_k=3, usar_tags=True)
-        
-        if results:
-            # Decide o formato da resposta
-            melhor_similaridade = results[0]['similaridade']
+        elif user_input.lower() == 'pontos':
+            print(f"\n🤖 {quiz_system.get_pontuacao()}")
             
-            if len(results) > 1 and melhor_similaridade > 0.5:
-                resposta_formatada = qa_system.formatar_multiplas_respostas(results)
+        elif user_input.lower() == 'reset':
+            print(f"\n🤖 {quiz_system.resetar_pontuacao()}")
+            
+        elif user_input.lower() == 'desistir':
+            print(f"\n🤖 {quiz_system.desistir()}")
+            
+        elif user_input.lower() == 'temas':
+            print(f"\n🤖 {quiz_system.listar_temas()}")
+            
+        elif user_input.lower().startswith('quiz'):
+            # Processa comando de quiz
+            partes = user_input.split()
+            if len(partes) == 1:
+                # Quiz aleatório
+                sucesso, mensagem = quiz_system.iniciar_quiz()
             else:
-                resposta_formatada = qa_system.formatar_resposta(results[0])
+                # Quiz com tema
+                tema = ' '.join(partes[1:])
+                sucesso, mensagem = quiz_system.iniciar_quiz(tema)
             
-            print(f"\n🤖 Bot: {resposta_formatada}\n")
+            print(f"\n🤖 {mensagem}")
+            
+            # Se quiz foi iniciado com sucesso, aguarda resposta
+            if sucesso:
+                while quiz_system.quiz_ativo:
+                    resposta = input("\n💭 Sua resposta: ").strip()
+                    
+                    if resposta.lower() == 'desistir':
+                        print(f"\n🤖 {quiz_system.desistir()}")
+                        break
+                    elif resposta.lower() == 'sair':
+                        print(f"\n🏆 Pontuação final: {quiz_system.get_pontuacao()}")
+                        exit()
+                    else:
+                        acertou, feedback = quiz_system.verificar_resposta(resposta)
+                        print(f"\n🤖 {feedback}")
+                        
+                        if acertou:
+                            # Pergunta se quer continuar
+                            continuar = input("\n🎮 Jogar novamente? (s/n): ").strip().lower()
+                            if continuar in ['s', 'sim', 'yes']:
+                                sucesso, mensagem = quiz_system.iniciar_quiz()
+                                print(f"\n🤖 {mensagem}")
+                            else:
+                                break
+            
         else:
-            print("🤖 Bot: Desculpe, não encontrei informações sobre isso. Tente usar outras palavras ou explore as tags!\n")
-            
+            print("\n🤖 Comando não reconhecido. Use 'quiz' para começar ou 'ajuda' para ver comandos.")
+
 if __name__ == "__main__":
     main()
