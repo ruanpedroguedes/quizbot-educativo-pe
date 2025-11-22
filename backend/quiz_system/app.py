@@ -24,17 +24,11 @@ class QuizSystem:
         
         print("🔄 Pré-computando embeddings...")
         
-        # Embeddings para as perguntas
-        combined_texts = [
-            f"{pergunta} [SEP] {contexto}" for pergunta, contexto in zip(df['pergunta'], df['contexto'])
-        ]
-        self.question_embeddings = self.processor.get_embeddings(combined_texts)
-        
-        # Embeddings para validação de respostas
+        # Embeddings para os nomes dos locais (validação de resposta)
         nomes_locais = self._extrair_nomes_locais(df)
         self.locais_embeddings = self.processor.get_embeddings(nomes_locais)
         
-        #Pré-Processamento de imagens
+        # Pré-Processamento de imagens
         self._preprocessar_imagens_dataset()
 
         print(f"✅ Sistema treinado com {len(df)} locais!")
@@ -50,7 +44,7 @@ class QuizSystem:
             # Remove duplicatas
             caminhos_imagens = list(set(caminhos_imagens))
             
-            print(f" Processando {len(caminhos_imagens)} imagens...")
+            print(f"🔄 Processando {len(caminhos_imagens)} imagens...")
             
             # Processa em lotes para melhor performance
             batch_size = 10
@@ -63,25 +57,25 @@ class QuizSystem:
                         self.imagens_processadas[caminho] = tensors[j]
                         print(f"✅ Imagem processada: {caminho}")
                 
-                print(f" Progresso: {min(i + batch_size, len(caminhos_imagens))}/{len(caminhos_imagens)}")
+                print(f"📊 Progresso: {min(i + batch_size, len(caminhos_imagens))}/{len(caminhos_imagens)}")
                 
         except Exception as e:
             print(f"❌ Erro no pré-processamento de imagens: {e}")
 
     def _extrair_nomes_locais(self, df):
-        # Extrai os nomes principais dos locais
+        """Extrai os nomes principais dos locais para validação"""
         nomes = []
         for contexto in df['contexto']:
-            # Tenta extrair o nome do local de forma inteligente
-            nome = contexto.split('.')[0]
-            nome = nome.split(' é ')[0]
-            nome = nome.split(' fica ')[0]
+            # Extrai o nome do local do contexto (primeiras palavras)
+            nome = contexto.split('.')[0]  # Pega até o primeiro ponto
+            nome = nome.split(' é ')[0]    # Remove descrições
+            nome = nome.split(' fica ')[0] # Remove localizações
             nome = nome.split(' localizado ')[0]
             nomes.append(nome.strip())
         return nomes
     
     def criar_ou_recuperar_sessao(self, nome_usuario):
-        # Cria nova sessão ou recupera existente pelo nome
+        """Cria uma nova sessão ou recupera existente pelo nome"""
         if nome_usuario in self.users_sessions:
             # Retorna sessão existente
             return self.users_sessions[nome_usuario].session_id
@@ -93,13 +87,13 @@ class QuizSystem:
             return session.session_id
     
     def get_estatisticas_usuario(self, nome_usuario):
-        # Retorna estatísticas do usuário
+        """Retorna estatísticas do usuário"""
         if nome_usuario not in self.users_sessions:
             return None
         return self.users_sessions[nome_usuario].to_dict()
     
     def nova_questao(self, nome_usuario, tema=None):
-        # Gera uma nova questão para o usuário
+        """Gera uma nova questão de identificação de imagem"""
         if nome_usuario not in self.users_sessions:
             return {'erro': 'Usuário não encontrado. Crie uma sessão primeiro.'}
         
@@ -122,60 +116,28 @@ class QuizSystem:
                 self.imagens_processadas[imagem_path] = imagem_tensor
                 print(f"✅ Imagem processada sob demanda: {imagem_path}")
         
-        # Prepara a questão
+        # Prepara a questão de identificação
         session.questao_atual = {
             'id': idx,
-            'pergunta': local['pergunta'],
+            'pergunta': "Que local é esse da imagem?",
             'imagem': imagem_path,
             'imagem_tensor': imagem_tensor,
-            'dica': self._gerar_dica_inteligente(local),
+            'dica': self._gerar_dica_identificacao(local),
             'tags': local.get('tags', []),
             'dificuldade': self._calcular_dificuldade(local),
-            'caracteristicas_visuais': self._extrair_caracteristicas_visuais(local, imagem_tensor)
+            'resposta_correta': local['contexto'],  # Guarda a resposta correta
+            'nome_local': self._extrair_nome_do_contexto(local['contexto'])
         }
         session.resposta_correta = local['contexto']
         session.tentativas = 0
-        
-        # Embedding para validação rápida
-        resposta_embedding = self.processor.get_embeddings([local['contexto']])
-        session.resposta_embedding = resposta_embedding[0]
         
         return {
             'questao': session.questao_atual,
             'session_id': session.session_id
         }
     
-      
-    def _extrair_caracteristicas_visuais(self, local, imagem_tensor):
-        caracteristicas = []
-        
-        if imagem_tensor is not None:
-            # Analisa características da imagem processada
-            try:
-                # Exemplo: detecta cores predominantes (simplificado)
-                if imagem_tensor.mean() > 0.6:
-                    caracteristicas.append("Local bem iluminado")
-                else:
-                    caracteristicas.append("Local com tons mais escuros")
-                
-            except Exception as e:
-                print(f"⚠️ Erro na análise visual: {e}")
-        
-        # Características baseadas no contexto textual
-        contexto = local['contexto'].lower()
-        if any(word in contexto for word in ['praia', 'mar', 'oceano', 'litoral']):
-            caracteristicas.append("Ambiente costeiro")
-        if any(word in contexto for word in ['histórico', 'antigo', 'século', 'patrimônio']):
-            caracteristicas.append("Arquitetura histórica")
-        if any(word in contexto for word in ['moderno', 'contemporâneo', 'novo']):
-            caracteristicas.append("Arquitetura moderna")
-        if any(word in contexto for word in ['natureza', 'verde', 'árvore', 'parque']):
-            caracteristicas.append("Área verde/natural")
-        
-        return caracteristicas[:3] 
-    
     def _calcular_dificuldade(self, local):
-        # Calcula dificuldade baseada no contexto
+        """Calcula dificuldade baseada no contexto"""
         contexto = local['contexto']
         palavras = len(contexto.split())
         
@@ -186,44 +148,49 @@ class QuizSystem:
         else:
             return "Difícil"
     
-    def _gerar_dica_inteligente(self, local):
-        # Gera dicas usando análise do contexto
+    def _gerar_dica_identificacao(self, local):
+        """Gera dicas específicas para identificação de imagem"""
         contexto = local['contexto']
         tags = local.get('tags', [])
-
-        #Características visuais das fotos
-        caracteristicas_visuais = self._extrair_caracteristicas_visuais(local, None)
         
         dicas = []
         
         # Dica baseada em tags
         if tags:
-            dicas.append(f"🏷️ Tags: {', '.join(tags[:3])}")
-
-        #Dica Baseada na foto
-        if caracteristicas_visuais:
-            dica_visual = random.choice(caracteristicas_visuais)
-            dicas.append(f"👀 {dica_visual}")
+            tags_faceis = [tag for tag in tags if tag in ['praia', 'cidade', 'parque', 'museu', 'igreja', 'centro', 'histórico']]
+            if tags_faceis:
+                dicas.append(f"💡 É um {tags_faceis[0]}")
         
         # Dica baseada no tipo de local
-        if any(word in contexto.lower() for word in ['praia', 'mar', 'litoral']):
-            dicas.append("🌊 É uma área litorânea")
-        elif any(word in contexto.lower() for word in ['museu', 'histórico', 'patrimônio']):
-            dicas.append("🏛️ Local histórico/cultural")
-        elif any(word in contexto.lower() for word in ['parque', 'natureza', 'verde']):
-            dicas.append("🌳 Área natural/parque")
+        contexto_lower = contexto.lower()
+        if any(word in contexto_lower for word in ['praia', 'mar', 'litoral']):
+            dicas.append("🌊 Fica no litoral")
+        elif any(word in contexto_lower for word in ['museu', 'histórico', 'patrimônio']):
+            dicas.append("🏛️ Local histórico")
+        elif any(word in contexto_lower for word in ['parque', 'natureza', 'verde']):
+            dicas.append("🌳 Área natural")
+        elif any(word in contexto_lower for word in ['centro', 'cidade', 'urbano']):
+            dicas.append("🏙️ Área urbana")
         
-        # Dica do nome
+        # Dica da localização
+        if 'recife' in contexto_lower:
+            dicas.append("📍 Fica no Recife")
+        elif 'olinda' in contexto_lower:
+            dicas.append("📍 Fica em Olinda")
+        elif 'noronha' in contexto_lower:
+            dicas.append("📍 Arquipélago famoso")
+        
+        # Dica do nome (número de palavras)
         nome = self._extrair_nome_do_contexto(contexto)
         if nome and len(nome.split()) > 1:
-            dicas.append(f"📝 Nome tem {len(nome.split())} palavras")
+            dicas.append(f"📝 O nome tem {len(nome.split())} palavras")
         elif nome:
             dicas.append(f"📝 Começa com '{nome[0].upper()}'")
         
         return random.choice(dicas) if dicas else "💡 Ponto turístico famoso de Pernambuco"
     
     def _extrair_nome_do_contexto(self, contexto):
-        # Extrai o nome do local do contexto
+        """Extrai o nome do local do contexto"""
         # Remove descrições comuns
         descricoes = ['é um', 'é uma', 'fica', 'localizado', 'situado', 'conhecido']
         nome = contexto.split('.')[0]
@@ -234,8 +201,8 @@ class QuizSystem:
         
         return nome.strip()
     
-    def validar_resposta(self, nome_usuario, resposta_usuario, imagem_usuario=None):
-        # Valida a resposta do usuário usando Deep Learning
+    def validar_resposta_identificacao(self, nome_usuario, resposta_usuario):
+        """Valida a resposta para identificação de imagem e retorna info completa"""
         if nome_usuario not in self.users_sessions:
             return {'valido': False, 'erro': 'Usuário não encontrado'}
         
@@ -246,46 +213,39 @@ class QuizSystem:
         
         session.tentativas += 1
         session.questoes_respondidas += 1
-         
-        # Validação por texto (similaridade semântica)
+        
+        # Calcula similaridade entre resposta e nome do local correto
         resposta_embedding = self.processor.get_embeddings([resposta_usuario])[0]
+        nome_correto = session.questao_atual['nome_local']
+        nome_correto_embedding = self.processor.get_embeddings([nome_correto])[0]
         
-        similaridade_correta = cosine_similarity(
-            [resposta_embedding], 
-            [session.resposta_embedding]
-        )[0][0]
+        similaridade = cosine_similarity([resposta_embedding], [nome_correto_embedding])[0][0]
         
-        # Validação por Imagem (se o usuário enviou uma imagem)
-        similaridade_imagem = 0.0
-        if imagem_usuario:
-            similaridade_imagem = self._validar_imagem_usuario(imagem_usuario, session.questao_atual['imagem_tensor'])
-            print(f"🔍 Similaridade da imagem: {similaridade_imagem:.3f}")
+        print(f"🔍 Validando: '{resposta_usuario}' vs '{nome_correto}' - Similaridade: {similaridade:.3f}")
         
-        # Combina as Similaridades
-        similaridade_final = self._combinar_similaridades(similaridade_correta, similaridade_imagem, imagem_usuario is not None)
+        # Threshold para identificação (é mais difícil)
+        threshold = 0.65
         
-        print(f" Similaridades - Texto: {similaridade_correta:.3f}, Imagem: {similaridade_imagem:.3f}, Final: {similaridade_final:.3f}")
-        
-        # Validação inteligente com threshold adaptável
-        threshold = 0.72  # Pode ajustar baseado na dificuldade
-        
-        if similaridade_final > threshold:
-            # Acertou!
-            pontos = self._calcular_pontos(similaridade_final, session.tentativas, similaridade_imagem)
+        if similaridade > threshold:
+            # Acertou! Prepara resposta completa
+            pontos = self._calcular_pontos_identificacao(similaridade, session.tentativas)
             session.pontuacao += pontos
             session.acertos += 1
             
+            # Busca informações completas do local
+            info_local = self._obter_informacoes_completas(session.questao_atual['id'])
+            
             session.historico.append({
+                'tipo': 'identificacao_imagem',
                 'questao': session.questao_atual['pergunta'],
+                'imagem': session.questao_atual['imagem'],
                 'resposta_usuario': resposta_usuario,
                 'resposta_correta': session.resposta_correta,
+                'nome_correto': nome_correto,
                 'tentativas': session.tentativas,
-                'similaridade_texto': float(similaridade_correta),
-                'similaridade_imagem': float(similaridade_imagem),
-                'similaridade_final': float(similaridade_final),
+                'similaridade': float(similaridade),
                 'pontos_ganhos': pontos,
-                'timestamp': datetime.now().isoformat(),
-                'usou_imagem': imagem_usuario is not None
+                'timestamp': datetime.now().isoformat()
             })
             
             # Prepara próxima questão
@@ -297,11 +257,11 @@ class QuizSystem:
                 'pontuacao': session.pontuacao,
                 'pontos_ganhos': pontos,
                 'resposta_correta': session.resposta_correta,
+                'nome_local_correto': nome_correto,
                 'tentativas': session.tentativas,
-                'similaridade_texto': float(similaridade_correta),
-                'similaridade_imagem': float(similaridade_imagem),
-                'similaridade_final': float(similaridade_final),
-                'feedback': self._gerar_feedback_positivo(similaridade_correta, similaridade_imagem),
+                'similaridade': float(similaridade),
+                'feedback': self._gerar_feedback_identificacao(similaridade),
+                'informacoes_local': info_local,  # ✅ Informações completas
                 'proxima_questao': proxima_questao.get('questao') if not proxima_questao.get('erro') else None
             }
         
@@ -310,72 +270,116 @@ class QuizSystem:
             return {
                 'valido': True,
                 'acertou': False,
-                'feedback': self._gerar_feedback_negativo(similaridade_correta, session.tentativas),
+                'feedback': self._gerar_feedback_erro_identificacao(similaridade, session.tentativas),
                 'tentativas': session.tentativas,
-                'similaridade_texto': float(similaridade_correta),
-                'similaridade_imagem': float(similaridade_imagem),
+                'similaridade': float(similaridade),
                 'dica_extra': session.questao_atual['dica'] if session.tentativas >= 2 else None
             }
-    def _validar_imagem_usuario(self, imagem_usuario, imagem_correta_tensor):
-        #Valida similaridade entre imagens usando processamento
+    
+    def _obter_informacoes_completas(self, id_local):
+        """Retorna informações completas sobre o local"""
         try:
-            # Processa a imagem do usuário
-            imagem_usuario_tensor = self.image_processor.process_single_image(imagem_usuario)
+            local = self.df.iloc[id_local]
             
-            if imagem_usuario_tensor is None or imagem_correta_tensor is None:
-                return 0.0
+            # Formata informações de forma educativa
+            informacoes = {
+                'nome': self._extrair_nome_do_contexto(local['contexto']),
+                'descricao_completa': local['contexto'],
+                'curiosidades': self._gerar_curiosidades(local),
+                'tags': local.get('tags', []),
+                'dica_turistica': self._gerar_dica_turistica(local),
+                'imagem': local.get('imagem', '')
+            }
             
-            #Calcula similaridade entre os tensores 
-            similarity = torch.nn.functional.cosine_similarity(
-                imagem_usuario_tensor.flatten(), 
-                imagem_correta_tensor.flatten(), 
-                dim=0
-            )
-            
-            return similarity.item()
+            return informacoes
             
         except Exception as e:
-            print(f"❌ Erro na validação de imagem: {e}")
-            return 0.0
+            print(f"❌ Erro ao obter informações do local: {e}")
+            return None
     
-    def _combinar_similaridades(self, similaridade_texto, similaridade_imagem, usou_imagem):
-        #Combina similaridades de texto e imagem
-        if usou_imagem:
-            # Se usou imagem, dá peso para ambos
-            return 0.7 * similaridade_texto + 0.3 * similaridade_imagem
-        else:
-            # Se só texto, usa apenas similaridade textual
-            return similaridade_texto
-    
-    def _calcular_pontos(self, similaridade, tentativas, similaridade_imagem):
-        # Calcula pontos baseados na qualidade da resposta e tentativas
-        base_points = 100
-        similarity_bonus = int(similaridade * 50)  # Até 50 pontos extra por precisão
-        speed_bonus = max(0, 50 - (tentativas * 20))  # Bonus por menos tentativas
-        image_bonus = int(similaridade_imagem * 30) if similaridade_imagem > 0 else 0  
+    def _gerar_curiosidades(self, local):
+        """Gera curiosidades baseadas no contexto"""
+        contexto = local['contexto'].lower()
+        tags = local.get('tags', [])
+        curiosidades = []
         
-        return base_points + similarity_bonus + speed_bonus + image_bonus
+        # Curiosidades baseadas no conteúdo
+        if any(word in contexto for word in ['patrimônio', 'unesco', 'histórico']):
+            curiosidades.append("🏛️ É um Patrimônio Histórico ou Cultural")
+        
+        if any(word in contexto for word in ['praia', 'mar', 'litoral']):
+            curiosidades.append("🌊 Local perfeito para banho e fotos")
+        
+        if any(word in contexto for word in ['natureza', 'parque', 'verde']):
+            curiosidades.append("🌳 Ótimo para contato com a natureza")
+        
+        if any(word in contexto for word in ['famoso', 'conhecido', 'visitado']):
+            curiosidades.append("⭐ Um dos pontos mais visitados da região")
+        
+        # Curiosidades baseadas em tags
+        if 'gastronomia' in tags:
+            curiosidades.append("🍽️ Oferece opções de gastronomia local")
+        
+        if 'cultura' in tags:
+            curiosidades.append("🎭 Local com rica programação cultural")
+        
+        if 'aventura' in tags:
+            curiosidades.append("🚀 Ideal para atividades de aventura")
+        
+        return curiosidades[:3]  # Limita a 3 curiosidades
     
-    def _gerar_feedback_positivo(self, similaridade_texto, similaridade_imagem):
-        if similaridade_imagem > 0.9:
-            return "🎉 Perfeito! Sua descrição e imagem combinam perfeitamente!"
-        elif similaridade_texto > 0.8:
-            return "✅ Excelente! Quase perfeito!"
-        elif similaridade_texto > 0.75:
-            return "👍 Muito bom! Acertou em cheio!"
+    def _gerar_dica_turistica(self, local):
+        """Gera dica turística prática"""
+        contexto = local['contexto'].lower()
+        
+        if any(word in contexto for word in ['praia', 'mar']):
+            return "💡 Dica: Leve protetor solar e aproveite o pôr do sol!"
+        
+        elif any(word in contexto for word in ['museu', 'histórico']):
+            return "💡 Dica: Visite durante a semana para evitar filas!"
+        
+        elif any(word in contexto for word in ['parque', 'natureza']):
+            return "💡 Dica: Use roupas confortáveis e leve água!"
+        
+        elif any(word in contexto for word in ['centro', 'cidade']):
+            return "💡 Dica: Melhor visitar durante o dia para aproveitar o comércio local!"
+        
         else:
-            return "👏 Acertou! Mas pode ser mais específico..."
+            return "💡 Dica: Não esqueça a câmera para registrar o momento!"
     
-    def _gerar_feedback_negativo(self, similaridade, tentativas):
+    def _calcular_pontos_identificacao(self, similaridade, tentativas):
+        """Calcula pontos para identificação (mais pontos por ser mais difícil)"""
+        base_points = 150  # Base maior
+        similarity_bonus = int(similaridade * 75)  # Bônus maior
+        speed_bonus = max(0, 75 - (tentativas * 25))  # Bônus por velocidade
+        
+        return base_points + similarity_bonus + speed_bonus
+    
+    def _gerar_feedback_identificacao(self, similaridade):
+        """Gera feedback para acerto na identificação"""
+        if similaridade > 0.85:
+            return "🎉 **PERFEITO!** Você identificou com precisão!"
+        elif similaridade > 0.75:
+            return "✅ **EXCELENTE!** Quase perfeito!"
+        elif similaridade > 0.65:
+            return "👍 **MUITO BOM!** Identificou corretamente!"
+        else:
+            return "👏 **CERTO!** Você acertou o local!"
+    
+    def _gerar_feedback_erro_identificacao(self, similaridade, tentativas):
+        """Gera feedback para erro na identificação"""
         if tentativas == 1:
-            return "❌ Não é isso... Tente novamente!"
+            if similaridade > 0.5:
+                return "❌ Quase! Mas não é exatamente esse local..."
+            else:
+                return "❌ Não é esse local... Tente novamente!"
         elif tentativas == 2:
-            return "❌ Ainda não... Pense nas características do local!"
+            return "❌ Ainda não... Observe bem a imagem e pense em locais famosos!"
         else:
-            return "❌ Vamos tentar de outra forma... Que tal desistir e ver a resposta?"
+            return "❌ Vamos tentar de outra forma... Que tal uma dica?"
     
     def desistir(self, nome_usuario):
-        # Revela a resposta e gera nova questão
+        """Revela a resposta e gera nova questão"""
         if nome_usuario not in self.users_sessions:
             return {'erro': 'Usuário não encontrado'}
         
@@ -385,15 +389,17 @@ class QuizSystem:
             return {'erro': 'Nenhuma questão ativa'}
         
         resposta_correta = session.resposta_correta
+        info_local = self._obter_informacoes_completas(session.questao_atual['id'])
         proxima_questao = self.nova_questao(nome_usuario)
         
         return {
             'resposta_correta': resposta_correta,
+            'informacoes_local': info_local,
             'proxima_questao': proxima_questao.get('questao') if not proxima_questao.get('erro') else None
         }
     
     def get_ranking(self):
-        # Retorna ranking por pontuação
+        """Retorna ranking por pontuação"""
         users_ordenados = sorted(
             self.users_sessions.values(), 
             key=lambda x: x.pontuacao, 
@@ -410,8 +416,9 @@ class QuizSystem:
             }
             for i, user in enumerate(users_ordenados[:10])
         ]
+    
     def get_info_imagem(self, caminho_imagem):
-        #Retorna informações sobre uma imagem processada
+        """Retorna informações sobre uma imagem processada"""
         if caminho_imagem in self.imagens_processadas:
             tensor = self.imagens_processadas[caminho_imagem]
             return {
@@ -424,3 +431,8 @@ class QuizSystem:
                 'processada': False,
                 'caminho': caminho_imagem
             }
+    
+    # Método de validação antigo (mantido para compatibilidade)
+    def validar_resposta(self, nome_usuario, resposta_usuario, imagem_usuario=None):
+        """Método legado - redireciona para o novo método"""
+        return self.validar_resposta_identificacao(nome_usuario, resposta_usuario)
