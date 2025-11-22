@@ -1,6 +1,4 @@
-import uuid
 from datetime import datetime
-import json
 from text_processor.perguntas_respostas import QuestionProcessor
 from preprocessing.pre_processor_img import ImageProcessor 
 from quiz_system.game_state import UserGameState
@@ -198,7 +196,7 @@ class QuizSystem:
         
         # Dica baseada em tags
         if tags:
-            dicas.append(f"🏷️ Tags: {', '.join(tags[:3])}")
+            dicas.append(f"�️ Tags: {', '.join(tags[:3])}")
 
         #Dica Baseada na foto
         if caracteristicas_visuais:
