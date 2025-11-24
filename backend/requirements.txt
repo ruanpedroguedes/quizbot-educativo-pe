@@ -1,22 +1,12 @@
-# Core da API (usando wheels pré-compilados)
+# Versões compatíveis com Python 3.13
 fastapi==0.104.1
 uvicorn==0.24.0
-pydantic==2.6.4
-python-multipart==0.0.6
-
-# Data processing (versões estáveis com wheels)
-pandas==1.5.3
-numpy==1.24.3
-scikit-learn==1.2.2
-
-# Image processing (leve)
-Pillow==9.5.0
-
-# Embeddings (alternativa mais leve)
-sentence-transformers==2.2.2
-
-# Utilitários
-python-dateutil==2.8.2
-pytz==2023.3
-requests==2.31.0
-Jinja2==3.1.2
+pandas==2.2.2  # ⬅️ Versão NOVA compatível com 3.13
+numpy==2.0.0   # ⬅️ Versão NOVA compatível com 3.13
+scikit-learn==1.5.0
+torch==2.3.0
+transformers==4.37.2
+Pillow==10.2.0
+python-multipart==0.0.9
+sentence-transformers==2.7.0
+setuptools==70.0.0  # ⬅️ Versão NOVA compatível
