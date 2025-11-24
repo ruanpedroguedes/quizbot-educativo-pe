@@ -1,40 +1,20 @@
-import pandas as pd
-import torch
-from transformers import BertTokenizer, BertModel
-import numpy as np
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
 
 class QuestionProcessor:
     def __init__(self):
-       self.model = BertModel.from_pretrained('neuralmind/bert-base-portuguese-cased')
-       self.tokenizer = BertTokenizer.from_pretrained('neuralmind/bert-base-portuguese-cased') 
-       self.model.eval()
-
-    def preprocess_text(self, texto):
-        if pd.isna(texto):
-           return "" 
-
-        return str(texto).strip()
-
-    def get_embeddings(self, textos):
-        embeddings = []
+        # Modelo BERT em português mais leve - MESMA FUNCIONALIDADE
+        self.model = SentenceTransformer('rufimelo/bert-base-portuguese-cased-nli')
+        print("✅ QuestionProcessor inicializado com SentenceTransformer")
+    
+    def get_embeddings(self, texts):
+        """
+        Gera embeddings para textos - MESMA INTERFACE que o QuizSystem espera
+        Retorna: numpy array de embeddings
+        """
+        if isinstance(texts, str):
+            texts = [texts]
         
-        for texto in textos:
-            texto_processado = self.preprocess_text(texto)
-
-            inputs = self.tokenizer(
-                texto_processado,
-                return_tensors='pt',
-                padding=True,
-                truncation=True,
-                max_length=512,
-                return_attention_mask=True
-            )
-
-            # Gera os embeddings sem calculo de gradiente
-            with torch.no_grad():
-                outputs = self.model(**inputs)
-
-                embedding = outputs.last_hidden_state[:, 0, :].cpu().numpy()
-                embeddings.append(embedding[0])
-
-            return np.array(embeddings)
+        # SentenceTransformer já retorna numpy array
+        embeddings = self.model.encode(texts)
+        return embeddings

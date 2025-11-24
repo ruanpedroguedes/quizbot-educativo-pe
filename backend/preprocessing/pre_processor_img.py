@@ -1,78 +1,59 @@
-#Importando Bibliotecas
-import pandas as pd
+# Importando Bibliotecas LEVES
 import numpy as np
-import torch
-import torchvision.transforms as transforms
 from PIL import Image 
-import cv2
-import os
-import matplotlib.pyplot as plt
 
-#Lendo dataset 
-df_read = pd.read_json("datasets/dataset_pernambuco_25_turistas.json")
-
-all_imgs = df_read["imagem"]
-for i in range(len(all_imgs)):
-    print(f"🎯 Encontradas {all_imgs[i]}")
-
-#Pré-processamento de Imagens com o t-50
 class ImageProcessor:
     def __init__(self):
-        self.transform = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ])
-
-#Pré-processamento de Imagens com o ResNet-50
+        self.target_size = (224, 224)
+        # Parâmetros de normalização (mesmos do ImageNet para compatibilidade)
+        self.mean = np.array([0.485, 0.456, 0.406])
+        self.std = np.array([0.229, 0.224, 0.225])
+        print("✅ ImageProcessor inicializado (versão leve)")
+    
     def process_img(self, img_paths):
+        """
+        Processa múltiplas imagens - MESMA INTERFACE que o QuizSystem espera
+        Retorna: numpy array no formato (batch, channels, height, width)
+        """
         processed = []
         for path in img_paths:
-              try:
-                  img = Image.open(path).convert('RGB')
-                  processed.append(self.transform(img))
-              except Exception as e:
+            try:
+                img = Image.open(path).convert('RGB')
+                # Redimensiona
+                img_resized = img.resize(self.target_size)
+                # Converte para numpy array
+                img_array = np.array(img_resized, dtype=np.float32)
+                # Normaliza [0, 1]
+                img_array = img_array / 255.0
+                # Normaliza com mean/std (igual ao PyTorch)
+                img_array = (img_array - self.mean) / self.std
+                # Muda para formato (C, H, W) para compatibilidade
+                img_array = np.transpose(img_array, (2, 0, 1))
+                processed.append(img_array)
+            except Exception as e:
                 print(f"❌ Erro em {path}: {e}")
     
-        return torch.stack(processed) if processed else None
-#Processa uma unica imagem
+        return np.array(processed) if processed else None
+    
     def process_single_image(self, img_path):
+        """
+        Processa uma única imagem - MESMA INTERFACE que o QuizSystem espera
+        Retorna: numpy array no formato (1, channels, height, width) com batch dimension
+        """
         try:
             img = Image.open(img_path).convert('RGB')
-            return self.transform(img).unsqueeze(0)  
+            # Redimensiona
+            img_resized = img.resize(self.target_size)
+            # Converte para numpy array
+            img_array = np.array(img_resized, dtype=np.float32)
+            # Normaliza [0, 1]
+            img_array = img_array / 255.0
+            # Normaliza com mean/std
+            img_array = (img_array - self.mean) / self.std
+            # Muda para formato (C, H, W)
+            img_array = np.transpose(img_array, (2, 0, 1))
+            # Adiciona dimensão batch (1, C, H, W) - MESMO que .unsqueeze(0) do PyTorch
+            return np.expand_dims(img_array, axis=0)
         except Exception as e:
             print(f"❌ Erro ao processar {img_path}: {e}")
             return None
-
-# Vendo o resultado final das imagens para teste
-def show_processed_preview(processed_tensors):
-    num_images = len(processed_tensors)
-    
-    # Configurar o layout
-    fig, axes = plt.subplots(1, num_images, figsize=(15, 3))
-    
-    # Se for apenas 1 imagem, converter para lista
-    if num_images == 1:
-        axes = [axes]
-    
-    for i in range(num_images):
-        # Pegar tensor da imagem i
-        tensor_img = processed_tensors[i]
-        
-        # Converter para numpy e ajustar dimensões (C, H, W) -> (H, W, C)
-        img_np = tensor_img.numpy().transpose(1, 2, 0)
-        
-        # Desnormalizar para visualização
-        mean = np.array([0.485, 0.456, 0.406])
-        std = np.array([0.229, 0.224, 0.225])
-        img_np = img_np * std + mean
-        img_np = np.clip(img_np, 0, 1)  # Limitar entre 0 e 1
-        
-        # Mostrar imagem
-        axes[i].imshow(img_np)
-        axes[i].set_title(f'Img {i+1}\n{tensor_img.shape}')
-        axes[i].axis('off')
-    
-    plt.tight_layout()
-    plt.show()
