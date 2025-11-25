@@ -38,26 +38,41 @@ class QuizSystem:
             # Extrai todos os caminhos de imagem únicos
             caminhos_imagens = []
             for idx, row in self.df.iterrows():
-                if 'imagem' in row and pd.notna(row['imagem']):
-                    caminhos_imagens.append(row['imagem'])
+                if 'imagem' in row and row['imagem'] is not None and row['imagem'] != '':
+                # Se for uma lista, pega todas as URLs
+                    if isinstance(row['imagem'], list):
+                        for url in row['imagem']:
+                            if pd.notna(url) and url and isinstance(url, str):
+                                caminhos_imagens.append(url.strip())
+               # Se for uma string única 
+                    elif isinstance(row['imagem'], str) and row['imagem'].strip():
+                        caminhos_imagens.append(row['imagem'].strip())
             
             # Remove duplicatas
             caminhos_imagens = list(set(caminhos_imagens))
             
             print(f"🔄 Processando {len(caminhos_imagens)} imagens...")
+
+            if not caminhos_imagens:
+                print("⚠️  Nenhuma imagem válida encontrada no dataset")
+                return
             
-            # Processa em lotes para melhor performance
-            batch_size = 10
-            for i in range(0, len(caminhos_imagens), batch_size):
-                batch = caminhos_imagens[i:i + batch_size]
-                tensors = self.image_processor.process_img(batch)
-                
-                if tensors is not None:
-                    for j, caminho in enumerate(batch):
-                        self.imagens_processadas[caminho] = tensors[j]
-                        print(f"✅ Imagem processada: {caminho}")
-                
-                print(f"📊 Progresso: {min(i + batch_size, len(caminhos_imagens))}/{len(caminhos_imagens)}")
+            # Processa cada imagem
+            imagens_sucesso = 0
+            for i, url in enumerate(caminhos_imagens):
+                try:
+                    print(f"📸 [{i+1}/{len(caminhos_imagens)}] Processando: {url}")
+                    tensor = self.image_processor.process_single_image(url)
+                    if tensor is not None:
+                        self.imagens_processadas[url] = tensor
+                        imagens_sucesso += 1
+                        print(f"✅ Imagem processada: {url}")
+                    else:
+                        print(f"❌ Falha ao processar imagem: {url}")
+                except Exception as e:
+                    print(f"❌ Erro ao processar {url}: {e}")
+            
+            print(f"🎉 Pré-processamento de imagens concluído: {imagens_sucesso}/{len(caminhos_imagens)} processadas com sucesso")
                 
         except Exception as e:
             print(f"❌ Erro no pré-processamento de imagens: {e}")
@@ -93,47 +108,69 @@ class QuizSystem:
         return self.users_sessions[nome_usuario].to_dict()
     
     def nova_questao(self, nome_usuario, tema=None):
-        """Gera uma nova questão de identificação de imagem"""
         if nome_usuario not in self.users_sessions:
             return {'erro': 'Usuário não encontrado. Crie uma sessão primeiro.'}
         
         session = self.users_sessions[nome_usuario]
         
-        # Escolhe um local aleatório (pode filtrar por tema depois)
-        idx = random.randint(0, len(self.df) - 1)
-        local = self.df.iloc[idx]
+        # Tenta encontrar um local com imagem válida
+        max_tentativas = 10
+        for tentativa in range(max_tentativas):
+            # Escolhe um local aleatório
+            idx = random.randint(0, len(self.df) - 1)
+            local = self.df.iloc[idx]
 
-        # OBTÉM IMAGEM PROCESSADA
-        imagem_tensor = None
-        imagem_path = local.get('imagem', '')
-        if imagem_path and imagem_path in self.imagens_processadas:
-            imagem_tensor = self.imagens_processadas[imagem_path]
-            print(f"✅ Imagem carregada do cache: {imagem_path}")
-        elif imagem_path:
-            # Processa sob demanda se não estava no cache
-            imagem_tensor = self.image_processor.process_single_image(imagem_path)
+            # OBTÉM IMAGEM PROCESSADA - CORRIGIDO para listas
+            imagem_tensor = None
+            imagem_path = None
+            
+            # CORREÇÃO: Se for uma lista de imagens, escolhe uma aleatória
+            if 'imagem' in local and pd.notna(local['imagem']):
+                if isinstance(local['imagem'], list) and local['imagem']:
+                    # Escolhe uma imagem aleatória da lista
+                    imagem_path = random.choice(local['imagem'])
+                elif isinstance(local['imagem'], str) and local['imagem'].strip():
+                    imagem_path = local['imagem'].strip()
+            
+            if imagem_path:
+                # Remove espaços e garante que é string
+                imagem_path = str(imagem_path).strip()
+                
+                if imagem_path in self.imagens_processadas:
+                    imagem_tensor = self.imagens_processadas[imagem_path]
+                    print(f"✅ Imagem carregada do cache: {imagem_path}")
+                else:
+                    # Processa sob demanda se não estava no cache
+                    imagem_tensor = self.image_processor.process_single_image(imagem_path)
+                    if imagem_tensor is not None:
+                        self.imagens_processadas[imagem_path] = imagem_tensor
+                        print(f"✅ Imagem processada sob demanda: {imagem_path}")
+            
+            # Se conseguiu uma imagem, cria a questão
             if imagem_tensor is not None:
-                self.imagens_processadas[imagem_path] = imagem_tensor
-                print(f"✅ Imagem processada sob demanda: {imagem_path}")
+                # Prepara a questão de identificação
+                session.questao_atual = {
+                    'id': idx,
+                    'pergunta': "Que local é esse da imagem?",
+                    'imagem': imagem_path,
+                    'imagem_tensor': imagem_tensor,
+                    'dica': self._gerar_dica_identificacao(local),
+                    'tags': local.get('tags', []),
+                    'dificuldade': self._calcular_dificuldade(local),
+                    'resposta_correta': local['contexto'],
+                    'nome_local': self._extrair_nome_do_contexto(local['contexto'])
+                }
+                session.resposta_correta = local['contexto']
+                session.tentativas = 0
+                
+                return {
+                    'questao': session.questao_atual,
+                    'session_id': session.session_id
+                }
         
-        # Prepara a questão de identificação
-        session.questao_atual = {
-            'id': idx,
-            'pergunta': "Que local é esse da imagem?",
-            'imagem': imagem_path,
-            'imagem_tensor': imagem_tensor,
-            'dica': self._gerar_dica_identificacao(local),
-            'tags': local.get('tags', []),
-            'dificuldade': self._calcular_dificuldade(local),
-            'resposta_correta': local['contexto'],  # Guarda a resposta correta
-            'nome_local': self._extrair_nome_do_contexto(local['contexto'])
-        }
-        session.resposta_correta = local['contexto']
-        session.tentativas = 0
-        
+        # Se não encontrou nenhuma imagem válida após várias tentativas
         return {
-            'questao': session.questao_atual,
-            'session_id': session.session_id
+            'erro': 'Não foi possível gerar uma questão com imagem no momento. Tente novamente.'
         }
     
     def _calcular_dificuldade(self, local):

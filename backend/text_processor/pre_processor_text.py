@@ -4,7 +4,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 class QuestionProcessor:
     def __init__(self):
         # Modelo BERT em português mais leve - MESMA FUNCIONALIDADE
-        self.model = SentenceTransformer('rufimelo/bert-base-portuguese-cased-nli')
+        self.model = SentenceTransformer('neuralmind/bert-base-portuguese-cased')
         print("✅ QuestionProcessor inicializado com SentenceTransformer")
     
     def get_embeddings(self, texts):

@@ -2,6 +2,9 @@
 import numpy as np
 from PIL import Image 
 from sklearn.metrics.pairwise import cosine_similarity
+import requests
+import os
+from io import BytesIO
 
 class ImageProcessor:
     def __init__(self):
@@ -11,62 +14,78 @@ class ImageProcessor:
         self.std = np.array([0.229, 0.224, 0.225])
         print("✅ ImageProcessor inicializado (versão leve)")
     
-    def process_img(self, img_paths):
-        """
-        Processa múltiplas imagens - versão LEVE sem PyTorch
-        Retorna: numpy array no formato (batch, channels, height, width)
-        """
-        processed = []
-        for path in img_paths:
-            try:
-                img_array = self._process_single_image_internal(path)
-                if img_array is not None:
-                    processed.append(img_array)
-            except Exception as e:
-                print(f"❌ Erro em {path}: {e}")
-        
-        return np.array(processed) if processed else None
-    
     def process_single_image(self, img_path):
         """
-        Processa uma única imagem - versão LEVE
-        Retorna: numpy array no formato (1, channels, height, width)
+        Processa uma única imagem - suporta URLs e arquivos locais
         """
         try:
-            img_array = self._process_single_image_internal(img_path)
-            if img_array is not None:
-                return np.expand_dims(img_array, axis=0)  # Adiciona dimensão batch
-            return None
+            # Verifica se é uma URL
+            if img_path.startswith('http'):
+                return self._process_url_image(img_path)
+            else:
+                return self._process_local_image(img_path)
         except Exception as e:
             print(f"❌ Erro ao processar {img_path}: {e}")
             return None
-    
-    def _process_single_image_internal(self, img_path):
-        """
-        Processamento interno para uma imagem
-        Retorna: numpy array no formato (channels, height, width)
-        """
+        
+    def _process_url_image(self, url):
+        #Processa imagem a partir de URL"""
         try:
-            img = Image.open(img_path).convert('RGB')
-            # Redimensiona
-            img_resized = img.resize(self.target_size)
-            # Converte para numpy array
-            img_array = np.array(img_resized, dtype=np.float32)
-            # Normaliza [0, 1]
-            img_array = img_array / 255.0
-            # Normaliza com mean/std (igual ao PyTorch)
-            img_array = (img_array - self.mean) / self.std
-            # Muda para formato (C, H, W) para compatibilidade
-            img_array = np.transpose(img_array, (2, 0, 1))
-            return img_array
+            print(f"🌐 Baixando imagem da URL: {url}")
+            response = requests.get(url, timeout=30)
+            response.raise_for_status()
+            
+            # Abre a imagem do conteúdo da resposta
+            img = Image.open(BytesIO(response.content)).convert('RGB')
+            return self._process_image_object(img)
+            
         except Exception as e:
-            print(f"❌ Erro no processamento interno de {img_path}: {e}")
+            print(f"❌ Erro ao baixar/processar URL {url}: {e}")
             return None
     
-    def calculate_similarity(self, img_array1, img_array2):
-        """
-        Calcula similaridade entre duas imagens usando cosine similarity
-        """
+    def _process_local_image(self, file_path):
+        """Processa imagem a partir de arquivo local"""
+        try:
+            if not os.path.exists(file_path):
+                print(f"❌ Arquivo não encontrado: {file_path}")
+                return None
+            
+            img = Image.open(file_path).convert('RGB')
+            return self._process_image_object(img)
+            
+        except Exception as e:
+            print(f"❌ Erro ao processar arquivo local {file_path}: {e}")
+            return None
+        
+    def _process_image_object(self, img):
+        """Processa o objeto PIL Image"""
+        try:
+            # Redimensiona
+            img_resized = img.resize(self.target_size)
+            
+            # Converte para numpy array
+            img_array = np.array(img_resized, dtype=np.float32)
+            
+            # Normaliza [0, 1]
+            img_array = img_array / 255.0
+            
+            # Normaliza com mean/std
+            img_array = (img_array - self.mean) / self.std
+            
+            # Muda para formato (C, H, W)
+            img_array = np.transpose(img_array, (2, 0, 1))
+            
+            # Adiciona dimensão do batch
+            img_array = np.expand_dims(img_array, axis=0)
+            
+            return img_array
+            
+        except Exception as e:
+            print(f"❌ Erro no processamento da imagem: {e}")
+            return None
+
+    def calculate_similarity(self, img_array1, img_array2): 
+        #Calcula similaridade entre duas imagens usando cosine similarity
         try:
             # Verifica se os arrays não são None
             if img_array1 is None or img_array2 is None:
