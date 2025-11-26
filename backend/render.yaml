@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: meu-projeto-ml
+    env: python
+    # Versão do Python
+    pythonVersion: "3.11.4"
+    
+    # Comandos de build
+    buildCommand: |
+      pip install -r requirements.txt
+      
+    # Comando de inicialização
+    startCommand: gunicorn app:app
+    
+    # Variáveis de ambiente (se precisar)
+    envVars:
+      - key: PYTHON_ENV
+        value: production
+        
+    # Plano (free tier)
+    plan: free
