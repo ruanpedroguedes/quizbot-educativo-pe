@@ -1,6 +1,8 @@
 import uuid
 from datetime import datetime
 import json
+import os
+from urllib.parse import urlparse
 from text_processor.perguntas_respostas import QuestionProcessor
 from preprocessing.pre_processor_img import ImageProcessor 
 from quiz_system.game_state import UserGameState
@@ -9,8 +11,14 @@ import random
 import torch
 import pandas as pd
 
+try:
+    from train_model import LocalImageClassifier
+except ImportError:
+    print("⚠️  Módulo train_model não encontrado - usando modo fallback")
+    LocalImageClassifier = None
+
 class QuizSystem:
-    def __init__(self):
+    def __init__(self, model_path=None, api_base_url="http://localhost:8000"):
         self.processor = QuestionProcessor()
         self.image_processor = ImageProcessor() 
         self.df = None
@@ -18,6 +26,25 @@ class QuizSystem:
         self.locais_embeddings = None
         self.users_sessions = {}  # {nome_usuario: UserGameState}
         self.imagens_processadas = {} # cache das imagens processadas
+        self.api_base_url = api_base_url 
+
+        # Carregar modelo treinado
+        self.classification_model = None
+        if model_path and os.path.exists(model_path) and LocalImageClassifier is not None:
+            try:
+                self.classification_model = LocalImageClassifier.load_model(model_path)
+                print("✅ Modelo de classificação carregado com sucesso!")
+            except Exception as e:
+                print(f"❌ Erro ao carregar modelo: {e}")
+                self.classification_model = None
+
+    def _para_url_api(self, caminho_local):
+        #Converte caminho local para URL da API
+        if caminho_local.startswith('http'):
+            return caminho_local  
+        
+        nome_arquivo = os.path.basename(caminho_local)
+        return f"{self.api_base_url}/imagens/{nome_arquivo}"            
         
     def treinamento(self, df):
         self.df = df.copy()
@@ -29,7 +56,8 @@ class QuizSystem:
         self.locais_embeddings = self.processor.get_embeddings(nomes_locais)
         
         # Pré-Processamento de imagens
-        self._preprocessar_imagens_dataset()
+        if not self.classification_model:
+            self._preprocessar_imagens_dataset()
 
         print(f"✅ Sistema treinado com {len(df)} locais!")
     
@@ -39,14 +67,18 @@ class QuizSystem:
             caminhos_imagens = []
             for idx, row in self.df.iterrows():
                 if 'imagem' in row and row['imagem'] is not None and row['imagem'] != '':
-                # Se for uma lista, pega todas as URLs
+                    # Se for uma lista, pega todas as URLs
                     if isinstance(row['imagem'], list):
                         for url in row['imagem']:
                             if pd.notna(url) and url and isinstance(url, str):
-                                caminhos_imagens.append(url.strip())
+                                caminho_local = self._para_caminho_local(url)
+                                if caminho_local and os.path.exists(caminho_local):
+                                    caminhos_imagens.append(caminho_local)
                # Se for uma string única 
                     elif isinstance(row['imagem'], str) and row['imagem'].strip():
-                        caminhos_imagens.append(row['imagem'].strip())
+                        caminho_local = self._para_caminho_local(row['imagem'].strip())
+                        if caminho_local and os.path.exists(caminho_local):
+                            caminhos_imagens.append(caminho_local)
             
             # Remove duplicatas
             caminhos_imagens = list(set(caminhos_imagens))
@@ -78,7 +110,7 @@ class QuizSystem:
             print(f"❌ Erro no pré-processamento de imagens: {e}")
 
     def _extrair_nomes_locais(self, df):
-        """Extrai os nomes principais dos locais para validação"""
+        #Extrai os nomes principais dos locais para validação
         nomes = []
         for contexto in df['contexto']:
             # Extrai o nome do local do contexto (primeiras palavras)
@@ -112,69 +144,116 @@ class QuizSystem:
             return {'erro': 'Usuário não encontrado. Crie uma sessão primeiro.'}
         
         session = self.users_sessions[nome_usuario]
-        
-        # Tenta encontrar um local com imagem válida
+        return self._nova_questao_legado(session)
+    
+    def _nova_questao_legado(self, session):
+        #Método legado baseado em similaridade
         max_tentativas = 10
         for tentativa in range(max_tentativas):
-            # Escolhe um local aleatório
             idx = random.randint(0, len(self.df) - 1)
             local = self.df.iloc[idx]
 
-            # OBTÉM IMAGEM PROCESSADA - CORRIGIDO para listas
-            imagem_tensor = None
-            imagem_path = None
-            
-            # CORREÇÃO: Se for uma lista de imagens, escolhe uma aleatória
-            if 'imagem' in local and pd.notna(local['imagem']):
-                if isinstance(local['imagem'], list) and local['imagem']:
-                    # Escolhe uma imagem aleatória da lista
-                    imagem_path = random.choice(local['imagem'])
-                elif isinstance(local['imagem'], str) and local['imagem'].strip():
-                    imagem_path = local['imagem'].strip()
-            
-            if imagem_path:
-                # Remove espaços e garante que é string
-                imagem_path = str(imagem_path).strip()
+            # Processa imagem sob demanda
+            imagem_path = self._obter_imagem_local(local)
+            if imagem_path and os.path.exists(imagem_path):
+                imagem_tensor = self.image_processor.process_single_image(imagem_path)
                 
-                if imagem_path in self.imagens_processadas:
-                    imagem_tensor = self.imagens_processadas[imagem_path]
-                    print(f"✅ Imagem carregada do cache: {imagem_path}")
-                else:
-                    # Processa sob demanda se não estava no cache
-                    imagem_tensor = self.image_processor.process_single_image(imagem_path)
-                    if imagem_tensor is not None:
-                        self.imagens_processadas[imagem_path] = imagem_tensor
-                        print(f"✅ Imagem processada sob demanda: {imagem_path}")
-            
-            # Se conseguiu uma imagem, cria a questão
-            if imagem_tensor is not None:
-                # Prepara a questão de identificação
-                session.questao_atual = {
-                    'id': idx,
-                    'pergunta': "Que local é esse da imagem?",
-                    'imagem': imagem_path,
-                    'imagem_tensor': imagem_tensor,
-                    'dica': self._gerar_dica_identificacao(local),
-                    'tags': local.get('tags', []),
-                    'dificuldade': self._calcular_dificuldade(local),
-                    'resposta_correta': local['contexto'],
-                    'nome_local': self._extrair_nome_do_contexto(local['contexto'])
-                }
-                session.resposta_correta = local['contexto']
-                session.tentativas = 0
-                
-                return {
-                    'questao': session.questao_atual,
-                    'session_id': session.session_id
-                }
+                if imagem_tensor is not None:
+                    imagem_url = self._para_url_api(imagem_path)
+                    
+                    session.questao_atual = {
+                        'id': idx,
+                        'pergunta': "Que local é esse da imagem?",
+                        'imagem': imagem_url,  
+                        'imagem_tensor': imagem_tensor,
+                        'dica': self._gerar_dica_identificacao(local),
+                        'tags': local.get('tags', []),
+                        'dificuldade': self._calcular_dificuldade(local),
+                        'resposta_correta': local['contexto'],
+                        'nome_local': self._extrair_nome_do_contexto(local['contexto']),
+                        'caminho_local': imagem_path  
+                    }
+                    session.resposta_correta = local['contexto']
+                    session.tentativas = 0
+                    
+                    return {
+                        'questao': session.questao_atual,
+                        'session_id': session.session_id,
+                        'modo': 'legado'
+                    }
         
-        # Se não encontrou nenhuma imagem válida após várias tentativas
-        return {
-            'erro': 'Não foi possível gerar uma questão com imagem no momento. Tente novamente.'
-        }
+        return {'erro': 'Não foi possível gerar uma questão com imagem no momento.'}
+    
+    def _listar_imagens_locais(self):
+        #Lista todas as imagens disponíveis localmente
+        imagens = []
+        diretorios = ['backend/dataset', 'backend/imagens']
+        
+        for diretorio in diretorios:
+            if os.path.exists(diretorio):
+                for root, dirs, files in os.walk(diretorio):
+                    for file in files:
+                        if file.lower().endswith(('.jpg', '.jpeg', '.png')):
+                            imagens.append(os.path.join(root, file))
+        
+        return imagens
+    
+    def _encontrar_local_por_nome(self, nome_local):
+        #Encontra um local no dataframe pelo nome
+        for idx, row in self.df.iterrows():
+            contexto_nome = self._extrair_nome_do_contexto(row['contexto'])
+            if contexto_nome.lower() == nome_local.lower():
+                return row
+        return None
+    
+    def _obter_imagem_local(self, local):
+        #Obtém caminho de imagem local a partir dos dados do local
+        if 'imagem' in local and pd.notna(local['imagem']):
+            if isinstance(local['imagem'], list) and local['imagem']:
+                imagem_path = random.choice(local['imagem'])
+            elif isinstance(local['imagem'], str) and local['imagem'].strip():
+                imagem_path = local['imagem'].strip()
+            else:
+                return None
+            
+            # Torna o caminho local
+            return self._para_caminho_local(imagem_path)
+        return None
+    
+    def _para_caminho_local(self, caminho):
+        #Converte URL/path para caminho local
+        if caminho.startswith('http'):
+            # Extrai nome do arquivo da URL
+            parsed = urlparse(caminho)
+            nome_arquivo = os.path.basename(parsed.path) 
+
+            if '?' in nome_arquivo:
+                nome_arquivo = nome_arquivo.split('?')[0]
+            
+            # Procura em vários diretórios possíveis
+            diretorios_procura = [
+                'backend/imagens',
+                'backend/dataset', 
+                'imagens',
+                'dataset'
+            ]
+
+            for diretorio in diretorios_procura:
+                caminho_local = os.path.join(diretorio, nome_arquivo)
+                if os.path.exists(caminho_local):
+                    print(f"✅ Encontrada imagem local: {caminho_local}")
+                    return caminho_local
+                
+            print(f"❌ Imagem não encontrada localmente: {nome_arquivo}")
+            return None
+        else:
+            # Já é um caminho local
+            if os.path.exists(caminho):
+                return caminho
+            return None
     
     def _calcular_dificuldade(self, local):
-        """Calcula dificuldade baseada no contexto"""
+        #Calcula dificuldade baseada no contexto
         contexto = local['contexto']
         palavras = len(contexto.split())
         
@@ -186,7 +265,7 @@ class QuizSystem:
             return "Difícil"
     
     def _gerar_dica_identificacao(self, local):
-        """Gera dicas específicas para identificação de imagem"""
+        #Gera dicas específicas para identificação de imagem
         contexto = local['contexto']
         tags = local.get('tags', [])
         
@@ -227,7 +306,7 @@ class QuizSystem:
         return random.choice(dicas) if dicas else "💡 Ponto turístico famoso de Pernambuco"
     
     def _extrair_nome_do_contexto(self, contexto):
-        """Extrai o nome do local do contexto"""
+        #Extrai o nome do local do contexto
         # Remove descrições comuns
         descricoes = ['é um', 'é uma', 'fica', 'localizado', 'situado', 'conhecido']
         nome = contexto.split('.')[0]
@@ -239,7 +318,7 @@ class QuizSystem:
         return nome.strip()
     
     def validar_resposta_identificacao(self, nome_usuario, resposta_usuario):
-        """Valida a resposta para identificação de imagem e retorna info completa"""
+        #Valida a resposta para identificação de imagem e retorna info completa
         if nome_usuario not in self.users_sessions:
             return {'valido': False, 'erro': 'Usuário não encontrado'}
         
@@ -260,11 +339,11 @@ class QuizSystem:
         
         print(f"🔍 Validando: '{resposta_usuario}' vs '{nome_correto}' - Similaridade: {similaridade:.3f}")
         
-        # Threshold para identificação (é mais difícil)
+        # Threshold para identificação 
         threshold = 0.65
         
         if similaridade > threshold:
-            # Acertou! Prepara resposta completa
+            # Prepara resposta completa
             pontos = self._calcular_pontos_identificacao(similaridade, session.tentativas)
             session.pontuacao += pontos
             session.acertos += 1
@@ -298,7 +377,7 @@ class QuizSystem:
                 'tentativas': session.tentativas,
                 'similaridade': float(similaridade),
                 'feedback': self._gerar_feedback_identificacao(similaridade),
-                'informacoes_local': info_local,  # ✅ Informações completas
+                'informacoes_local': info_local,  
                 'proxima_questao': proxima_questao.get('questao') if not proxima_questao.get('erro') else None
             }
         
@@ -314,7 +393,7 @@ class QuizSystem:
             }
     
     def _obter_informacoes_completas(self, id_local):
-        """Retorna informações completas sobre o local"""
+        #Retorna informações completas sobre o local
         try:
             local = self.df.iloc[id_local]
             
@@ -335,7 +414,7 @@ class QuizSystem:
             return None
     
     def _gerar_curiosidades(self, local):
-        """Gera curiosidades baseadas no contexto"""
+        #Gera curiosidades baseadas no contexto
         contexto = local['contexto'].lower()
         tags = local.get('tags', [])
         curiosidades = []
@@ -366,7 +445,7 @@ class QuizSystem:
         return curiosidades[:3]  # Limita a 3 curiosidades
     
     def _gerar_dica_turistica(self, local):
-        """Gera dica turística prática"""
+        #Gera dica turística prática
         contexto = local['contexto'].lower()
         
         if any(word in contexto for word in ['praia', 'mar']):
@@ -385,7 +464,7 @@ class QuizSystem:
             return "💡 Dica: Não esqueça a câmera para registrar o momento!"
     
     def _calcular_pontos_identificacao(self, similaridade, tentativas):
-        """Calcula pontos para identificação (mais pontos por ser mais difícil)"""
+        #Calcula pontos para identificação (mais pontos por ser mais difícil)
         base_points = 150  # Base maior
         similarity_bonus = int(similaridade * 75)  # Bônus maior
         speed_bonus = max(0, 75 - (tentativas * 25))  # Bônus por velocidade
@@ -393,7 +472,7 @@ class QuizSystem:
         return base_points + similarity_bonus + speed_bonus
     
     def _gerar_feedback_identificacao(self, similaridade):
-        """Gera feedback para acerto na identificação"""
+        #Gera feedback para acerto na identificação
         if similaridade > 0.85:
             return "🎉 **PERFEITO!** Você identificou com precisão!"
         elif similaridade > 0.75:
@@ -404,7 +483,7 @@ class QuizSystem:
             return "👏 **CERTO!** Você acertou o local!"
     
     def _gerar_feedback_erro_identificacao(self, similaridade, tentativas):
-        """Gera feedback para erro na identificação"""
+        #Gera feedback para erro na identificação
         if tentativas == 1:
             if similaridade > 0.5:
                 return "❌ Quase! Mas não é exatamente esse local..."
@@ -416,7 +495,7 @@ class QuizSystem:
             return "❌ Vamos tentar de outra forma... Que tal uma dica?"
     
     def desistir(self, nome_usuario):
-        """Revela a resposta e gera nova questão"""
+        #Revela a resposta e gera nova questão
         if nome_usuario not in self.users_sessions:
             return {'erro': 'Usuário não encontrado'}
         
@@ -436,7 +515,7 @@ class QuizSystem:
         }
     
     def get_ranking(self):
-        """Retorna ranking por pontuação"""
+        #Retorna ranking por pontuação
         users_ordenados = sorted(
             self.users_sessions.values(), 
             key=lambda x: x.pontuacao, 
@@ -455,7 +534,7 @@ class QuizSystem:
         ]
     
     def get_info_imagem(self, caminho_imagem):
-        """Retorna informações sobre uma imagem processada"""
+        #Retorna informações sobre uma imagem processada
         if caminho_imagem in self.imagens_processadas:
             tensor = self.imagens_processadas[caminho_imagem]
             return {
@@ -469,7 +548,7 @@ class QuizSystem:
                 'caminho': caminho_imagem
             }
     
-    # Método de validação antigo (mantido para compatibilidade)
+    # Método de validação 
     def validar_resposta(self, nome_usuario, resposta_usuario, imagem_usuario=None):
-        """Método legado - redireciona para o novo método"""
+        #Método legado 
         return self.validar_resposta_identificacao(nome_usuario, resposta_usuario)
