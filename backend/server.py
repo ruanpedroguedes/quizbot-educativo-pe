@@ -1,19 +1,18 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse  
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional
 import pandas as pd
-from sklearn.metrics.pairwise import cosine_similarity
 from contextlib import asynccontextmanager
 import os
 import mimetypes
 
-#Importe do QuizSystem
+# ✅ Importe do QuizSystem
 from quiz_system.app import QuizSystem
 
-#Configurações
-MODEL_PATH = "backend/modelos/modelo_classificador.pkl"
+# ✅ Configurações
+MODEL_PATH = "backend/modelos/tourist_model.pkl"
 API_BASE_URL = "http://localhost:8000"
 
 # Lifespan events moderno
@@ -22,7 +21,7 @@ async def lifespan(app: FastAPI):
     # Startup
     print("🔄 Iniciando Quiz System de Identificação de Imagens...")
     
-    #CORREÇÃO: Inicializar QuizSystem com configurações
+    # ✅ CORREÇÃO: Inicializar QuizSystem com configurações
     if os.path.exists(MODEL_PATH):
         print("✅ Modelo .pkl encontrado - inicializando com classificação")
         app.state.quiz_system = QuizSystem(model_path=MODEL_PATH, api_base_url=API_BASE_URL)
@@ -31,7 +30,7 @@ async def lifespan(app: FastAPI):
         app.state.quiz_system = QuizSystem(api_base_url=API_BASE_URL)
     
     try:
-        #CARREGUE SEU DATASET REAL AQUI
+        # ✅ CARREGUE SEU DATASET REAL AQUI
         df = pd.read_json('datasets/dataset_pernambuco_25_turistas.json')
         app.state.quiz_system.treinamento(df)
         print(f"✅ Dataset carregado com {len(df)} locais!")
@@ -50,7 +49,7 @@ async def lifespan(app: FastAPI):
         df = pd.DataFrame(sample_data)
         app.state.quiz_system.treinamento(df)
     
-    #Criar diretórios necessários
+    # ✅ Criar diretórios necessários
     os.makedirs("backend/imagens", exist_ok=True)
     os.makedirs("backend/uploads", exist_ok=True)
     
@@ -65,7 +64,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Quiz Turístico PE - Identificação de Imagens", 
     description="API para quiz onde usuários identificam locais turísticos baseados em imagens",
-    version="3.0.0", 
+    version="3.0.0",
     lifespan=lifespan
 )
 
@@ -76,7 +75,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-#Função auxiliar para acessar o quiz_system
+# ✅ Função auxiliar para acessar o quiz_system
 def get_quiz_system():
     return app.state.quiz_system
 
@@ -92,13 +91,18 @@ class TemaRequest(BaseModel):
     nome_usuario: str
     tema: Optional[str] = None
 
-#ENDPOINT PARA SERVIR IMAGENS LOCAIS CORRIGIDO
+class ModelTestRequest(BaseModel):
+    contexto: str
+    tags: Optional[list] = None
+
+# ✅ ENDPOINT PARA SERVIR IMAGENS LOCAIS
 @app.get("/imagens/{caminho_imagem:path}")
 async def servir_imagem(caminho_imagem: str):
     """
     🔹 SERVE IMAGENS LOCAIS - Serve imagens do sistema de arquivos local
     """
     try:
+        # Lista de diretórios onde procurar imagens
         diretorios_imagens = [
             "backend/imagens",
             "backend/dataset", 
@@ -107,7 +111,7 @@ async def servir_imagem(caminho_imagem: str):
             "imagens"
         ]
         
-        #CORREÇÃO: Tenta encontrar a imagem em algum dos diretórios
+        # Tenta encontrar a imagem em algum dos diretórios
         for diretorio in diretorios_imagens:
             caminho_completo = os.path.join(diretorio, caminho_imagem)
             if os.path.exists(caminho_completo):
@@ -123,7 +127,7 @@ async def servir_imagem(caminho_imagem: str):
                     filename=os.path.basename(caminho_imagem)
                 )
         
-        #CORREÇÃO: Se não encontrou, tenta o caminho absoluto
+        # Se não encontrou, tenta o caminho absoluto
         if os.path.exists(caminho_imagem):
             mime_type, _ = mimetypes.guess_type(caminho_imagem)
             return FileResponse(
@@ -137,7 +141,7 @@ async def servir_imagem(caminho_imagem: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao servir imagem: {str(e)}")
 
-#NOVO ENDPOINT - Listar imagens disponíveis
+# ✅ NOVO ENDPOINT - Listar imagens disponíveis
 @app.get("/imagens/")
 async def listar_imagens():
     """Lista todas as imagens disponíveis localmente"""
@@ -162,22 +166,53 @@ async def listar_imagens():
         "imagens": imagens_encontradas[:20]  # Limita a 20 para não sobrecarregar
     }
 
-#NOVO ENDPOINT - Status do sistema
+# ✅ NOVO ENDPOINT - Status do sistema
 @app.get("/system/status")
 async def get_system_status():
     """Retorna informações sobre o modo de operação do sistema"""
     quiz_system = get_quiz_system()
     
     status = {
-        "modo_operacao": "classificacao" if quiz_system.classification_model else "legado",
+        "modo_operacao": "modelo_pkl" if quiz_system.classification_model else "legado",
         "versao": "3.0.0",
         "modelo_carregado": quiz_system.classification_model is not None,
         "total_locais": len(quiz_system.df) if quiz_system.df else 0,
         "usuarios_ativos": len(quiz_system.users_sessions),
-        "imagens_processadas": len(quiz_system.imagens_processadas)
+        "imagens_processadas": len(quiz_system.imagens_processadas),
+        "caminho_modelo": MODEL_PATH,
+        "modelo_existe": os.path.exists(MODEL_PATH)
     }
     
     return status
+
+# ✅ NOVO ENDPOINT - Testar o modelo
+@app.post("/model/test")
+async def test_model(request: ModelTestRequest):
+    """Testa o modelo .pkl com um contexto"""
+    quiz_system = get_quiz_system()
+    
+    if not quiz_system.classification_model:
+        raise HTTPException(status_code=400, detail="Modelo .pkl não carregado")
+    
+    try:
+        resultado = quiz_system.classify_with_model(request.contexto, request.tags)
+        if resultado:
+            return {
+                "contexto": request.contexto,
+                "tags": request.tags,
+                "predicao": resultado,
+                "status": "sucesso"
+            }
+        else:
+            return {
+                "contexto": request.contexto,
+                "tags": request.tags,
+                "predicao": None,
+                "status": "erro",
+                "mensagem": "Modelo não retornou resultado"
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro no modelo: {str(e)}")
 
 # Endpoints principais para identificação de imagens
 @app.post("/quiz/iniciar")
@@ -200,7 +235,7 @@ async def iniciar_quiz_identificacao(request: UsuarioRequest):
         if 'imagem_tensor' in questao_serializavel:
             del questao_serializavel['imagem_tensor']
         
-        #Adiciona modo de operação
+        # ✅ Adiciona modo de operação
         modo = resultado_questao.get('modo', 'legado')
         
         return {
@@ -316,7 +351,7 @@ async def nova_questao_identificacao(request: TemaRequest):
         if 'imagem_tensor' in questao_serializavel:
             del questao_serializavel['imagem_tensor']
         
-        #Adiciona modo de operação
+        # ✅ Adiciona modo de operação
         modo = resultado.get('modo', 'legado')
         
         return {
@@ -435,68 +470,31 @@ async def responder_com_imagem_identificacao(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao validar resposta com imagem: {str(e)}")
 
-#Endpoint de Upload e classificação de imagem teste
-@app.post("/system/classificar-imagem")
-async def classificar_imagem(imagem: UploadFile = File(...)):
-    """
-    🔹 CLASSIFICAR IMAGEM - Faz upload e classifica uma imagem usando o modelo
-    """
-    try:
-        quiz_system = get_quiz_system()
-        
-        if not quiz_system.classification_model:
-            raise HTTPException(status_code=400, detail="Modelo de classificação não carregado")
-        
-        # Salva a imagem temporariamente
-        temp_path = f"backend/uploads/classify_{imagem.filename}"
-        with open(temp_path, "wb") as buffer:
-            content = await imagem.read()
-            buffer.write(content)
-        
-        # Classifica a imagem
-        resultado = quiz_system.classification_model.predict(temp_path)
-        
-        # Limpa arquivo temporário
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-        
-        if resultado:
-            return {
-                "status": "sucesso",
-                "classificacao": resultado
-            }
-        else:
-            return {
-                "status": "erro",
-                "mensagem": "Não foi possível classificar a imagem"
-            }
-            
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao classificar imagem: {str(e)}")
-
-#Endpoints de saúde e informação
+# Endpoints de saúde e informação
 @app.get("/")
 async def root():
     quiz_system = get_quiz_system()
     
-    modo = "classificacao" if quiz_system.classification_model else "legado"
+    modo = "modelo_pkl" if quiz_system.classification_model else "legado"
+    modelo_status = "✅ Carregado" if quiz_system.classification_model else "❌ Não carregado"
     
     return {
         "mensagem": "🎯 Quiz Turístico PE - Identificação de Imagens",
         "versao": "3.0.0",
         "modo_operacao": modo,
+        "modelo_status": modelo_status,
         "descricao": "Sistema de quiz onde usuários identificam locais turísticos baseados em imagens",
         "endpoints_principais": [
+            "GET /system/status - Status do sistema",
+            "POST /model/test - Testar modelo .pkl",
+            "GET /imagens/ - Listar imagens disponíveis",
             "POST /quiz/iniciar - Iniciar quiz de identificação",
             "POST /quiz/responder - Tentar identificar o local", 
             "POST /quiz/tentar-novamente - Tentar mesma questão",
             "POST /quiz/desistir - Desistir e ver resposta",
             "POST /quiz/nova-questao - Nova questão",
             "GET /usuarios/{nome}/estatisticas - Estatísticas do usuário",
-            "GET /quiz/ranking - Ranking geral",
-            "GET /system/status - Status do sistema",
-            "GET /imagens/ - Listar imagens disponíveis",
-            "GET /imagens/{nome} - Servir imagem local"
+            "GET /quiz/ranking - Ranking geral"
         ]
     }
 
@@ -509,10 +507,11 @@ async def health_check():
         "status": "healthy",
         "servico": "Quiz Turístico PE API",
         "versao": "3.0.0",
-        "modo_operacao": "classificacao" if quiz_system.classification_model else "legado",
+        "modo_operacao": "modelo_pkl" if quiz_system.classification_model else "legado",
         "imagens_processadas": len(quiz_system.imagens_processadas),
         "usuarios_ativos": len(quiz_system.users_sessions),
-        "modelo_carregado": quiz_system.classification_model is not None
+        "modelo_carregado": quiz_system.classification_model is not None,
+        "modelo_existe": os.path.exists(MODEL_PATH)
     }
 
 @app.get("/docs")
