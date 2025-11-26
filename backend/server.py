@@ -7,11 +7,12 @@ import pandas as pd
 from contextlib import asynccontextmanager
 import os
 import mimetypes
+from classifier import TouristSpotClassifier
 
 # ✅ Importe do QuizSystem
 from quiz_system.app import QuizSystem
 
-# ✅ Configurações
+model = TouristSpotClassifier.load("backend/modelos/tourist_model.pkl")
 MODEL_PATH = "backend/modelos/tourist_model.pkl"
 API_BASE_URL = "http://localhost:8000"
 
@@ -142,29 +143,84 @@ async def servir_imagem(caminho_imagem: str):
         raise HTTPException(status_code=500, detail=f"Erro ao servir imagem: {str(e)}")
 
 # ✅ NOVO ENDPOINT - Listar imagens disponíveis
-@app.get("/imagens/")
+@app.get("/lista-imagens/")
 async def listar_imagens():
     """Lista todas as imagens disponíveis localmente"""
-    imagens_encontradas = []
-    diretorios = ["backend/imagens", "backend/dataset", "backend/imagens_treinamento"]
+    try:
+        imagens_encontradas = []
+        diretorios = [
+            "backend/imagens",
+            "imagens",
+            "backend/dataset", 
+            "dataset"
+        ]
+        
+        extensoes_imagem = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.jfif'}
+        
+        for diretorio_base in diretorios:
+            if not os.path.exists(diretorio_base) or not os.path.isdir(diretorio_base):
+                print(f"⚠️  Diretório não encontrado ou não é diretório: {diretorio_base}")
+                continue
+                
+            print(f"🔍 Procurando imagens em: {diretorio_base}")
+            
+            try:
+                # Lista apenas o conteúdo do diretório principal (não recursivo)
+                for item in os.listdir(diretorio_base):
+                    caminho_completo = os.path.join(diretorio_base, item)
+                    
+                    # 🔥 VALIDAÇÃO CRÍTICA: Verifica se é arquivo E se é imagem
+                    if not os.path.isfile(caminho_completo):
+                        continue  # Ignora diretórios
+                    
+                    # Verifica extensão do arquivo
+                    if not any(item.lower().endswith(ext) for ext in extensoes_imagem):
+                        continue  # Ignora arquivos que não são imagens
+                    
+                    # Verifica se o arquivo tem tamanho > 0
+                    try:
+                        tamanho = os.path.getsize(caminho_completo)
+                        if tamanho == 0:
+                            continue  # Ignora arquivos vazios
+                    except OSError:
+                        continue  # Ignora arquivos inacessíveis
+                    
+                    # Adiciona à lista de imagens encontradas
+                    imagens_encontradas.append({
+                        'nome': item,
+                        'caminho_completo': caminho_completo,
+                        'url': f"/imagens/{item}",  # URL para acessar a imagem
+                        'diretorio': diretorio_base,
+                        'tamanho_bytes': tamanho,
+                        'url_completa': f"http://localhost:8000/imagens/{item}"
+                    })
+                    print(f"✅ Encontrada: {item}")
+                    
+            except PermissionError:
+                print(f"⚠️  Sem permissão para acessar: {diretorio_base}")
+                continue
+            except Exception as e:
+                print(f"⚠️  Erro ao acessar {diretorio_base}: {e}")
+                continue
+        
+        # Ordena por nome para consistência
+        imagens_encontradas.sort(key=lambda x: x['nome'])
+        
+        print(f"🎯 Total de imagens encontradas: {len(imagens_encontradas)}")
+        
+        return {
+            "status": "sucesso",
+            "total_imagens": len(imagens_encontradas),
+            "diretorios_procurados": diretorios,
+            "imagens": imagens_encontradas
+        }
     
-    for diretorio in diretorios:
-        if os.path.exists(diretorio):
-            for root, dirs, files in os.walk(diretorio):
-                for file in files:
-                    if file.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
-                        caminho_relativo = os.path.relpath(os.path.join(root, file), diretorio)
-                        imagens_encontradas.append({
-                            'nome': file,
-                            'caminho': caminho_relativo,
-                            'url': f"/imagens/{caminho_relativo}",
-                            'diretorio': diretorio
-                        })
-    
-    return {
-        "total_imagens": len(imagens_encontradas),
-        "imagens": imagens_encontradas[:20]  # Limita a 20 para não sobrecarregar
-    }
+    except Exception as e:
+        print(f"❌ Erro crítico em listar_imagens: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Erro ao listar imagens: {str(e)}"
+        )
 
 # ✅ NOVO ENDPOINT - Status do sistema
 @app.get("/system/status")

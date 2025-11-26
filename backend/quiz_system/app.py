@@ -11,6 +11,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 class QuizSystem:
     def __init__(self, model_path=None, api_base_url="http://localhost:8000"):
+        
         self.processor = QuestionProcessor()
         self.image_processor = ImageProcessor() 
         self.df = None
@@ -132,36 +133,83 @@ class QuizSystem:
         return f"{self.api_base_url}/imagens/{nome_arquivo}"
 
     def _para_caminho_local(self, caminho):
-        """Converte URL/path para caminho local"""
-        if caminho.startswith('http'):
-            # Extrai nome do arquivo da URL
-            parsed = urlparse(caminho)
-            nome_arquivo = os.path.basename(parsed.path)
-            
-            # Remove parâmetros de query se existirem
-            if '?' in nome_arquivo:
-                nome_arquivo = nome_arquivo.split('?')[0]
-            
-            # Procura em vários diretórios possíveis
-            diretorios_procura = [
-                'backend/imagens',
-                'backend/dataset', 
-                'imagens',
-                'dataset'
-            ]
-
-            for diretorio in diretorios_procura:
-                caminho_local = os.path.join(diretorio, nome_arquivo)
-                if os.path.exists(caminho_local):
-                    print(f"✅ Encontrada imagem local: {caminho_local}")
-                    return caminho_local
+        """Converte URL/path para caminho local com validações robustas"""
+        try:
+            if not caminho or not isinstance(caminho, str):
+                return None
                 
-            print(f"❌ Imagem não encontrada localmente: {nome_arquivo}")
-            return None
-        else:
-            # Já é um caminho local
-            if os.path.exists(caminho):
-                return caminho
+            caminho = caminho.strip()
+            if not caminho:
+                return None
+            
+            print(f"🔄 Convertendo para caminho local: {caminho}")
+            
+            if caminho.startswith('http'):
+                # Extrai nome do arquivo da URL
+                parsed = urlparse(caminho)
+                nome_arquivo = os.path.basename(parsed.path)
+                
+                if not nome_arquivo:
+                    print(f"❌ Não foi possível extrair nome do arquivo da URL: {caminho}")
+                    return None
+                    
+                # Remove parâmetros de query se existirem
+                if '?' in nome_arquivo:
+                    nome_arquivo = nome_arquivo.split('?')[0]
+                
+                # Verifica se o nome do arquivo tem extensão de imagem
+                extensoes_imagem = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
+                tem_extensao = any(nome_arquivo.lower().endswith(ext) for ext in extensoes_imagem)
+                
+                if not tem_extensao:
+                    print(f"⚠️  Nome de arquivo sem extensão de imagem: {nome_arquivo}")
+                    # Continua mesmo sem extensão, pode ser válido
+                
+                # Procura em vários diretórios possíveis
+                diretorios_procura = [
+                    'backend/imagens',
+                    'backend/dataset', 
+                    'imagens',
+                    'dataset',
+                    'backend/imagens/dataset',
+                    'backend/imagens_treinamento'
+                ]
+
+                for diretorio in diretorios_procura:
+                    caminho_local = os.path.join(diretorio, nome_arquivo)
+                    if os.path.isfile(caminho_local) and os.path.exists(caminho_local):
+                        print(f"✅ Imagem encontrada: {caminho_local}")
+                        return caminho_local
+                
+                print(f"❌ Imagem não encontrada em nenhum diretório: {nome_arquivo}")
+                return None
+                
+            else:
+                # Já é um caminho local - valida se é arquivo
+                if os.path.isfile(caminho) and os.path.exists(caminho):
+                    print(f"✅ Caminho local válido: {caminho}")
+                    return caminho
+                else:
+                    # Tenta encontrar o arquivo nos diretórios de imagem
+                    nome_arquivo = os.path.basename(caminho)
+                    diretorios_procura = [
+                        'backend/imagens',
+                        'backend/dataset', 
+                        'imagens',
+                        'dataset'
+                    ]
+                    
+                    for diretorio in diretorios_procura:
+                        caminho_local = os.path.join(diretorio, nome_arquivo)
+                        if os.path.isfile(caminho_local) and os.path.exists(caminho_local):
+                            print(f"✅ Imagem encontrada: {caminho_local}")
+                            return caminho_local
+                    
+                    print(f"❌ Caminho local não é arquivo ou não existe: {caminho}")
+                    return None
+                    
+        except Exception as e:
+            print(f"❌ Erro em _para_caminho_local para '{caminho}': {e}")
             return None
 
     def criar_ou_recuperar_sessao(self, nome_usuario):
@@ -281,15 +329,62 @@ class QuizSystem:
         return {'erro': 'Não foi possível gerar uma questão com imagem no momento.'}
 
     def _obter_imagem_local(self, local):
-        """Obtém caminho de imagem local a partir dos dados do local"""
-        if 'imagem' in local and pd.notna(local['imagem']):
-            if isinstance(local['imagem'], list) and local['imagem']:
-                # Escolhe uma imagem aleatória da lista e converte para local
-                url_imagem = random.choice(local['imagem'])
-                return self._para_caminho_local(url_imagem)
-            elif isinstance(local['imagem'], str) and local['imagem'].strip():
-                return self._para_caminho_local(local['imagem'].strip())
-        return None
+        """Obtém caminho de imagem local válido com validações robustas"""
+        try:
+            print(f"🔍 Obtendo imagem para local: {self._extrair_nome_do_contexto(local['contexto'])[:20]}...")
+            
+            if 'imagem' not in local or pd.isna(local['imagem']):
+                print("❌ Local sem dados de imagem")
+                return None
+            
+            imagem_data = local['imagem']
+            caminho = None
+            
+            # Se for lista, escolhe uma imagem aleatória válida
+            if isinstance(imagem_data, list) and imagem_data:
+                print(f"📋 Lista de imagens: {imagem_data}")
+                # Filtra entradas válidas
+                urls_validas = [url for url in imagem_data 
+                            if isinstance(url, str) and url.strip()]
+                
+                if not urls_validas:
+                    print("❌ Nenhuma URL válida na lista")
+                    return None
+                    
+                url_imagem = random.choice(urls_validas)
+                print(f"🎯 URL escolhida: {url_imagem}")
+                caminho = self._para_caminho_local(url_imagem.strip())
+            
+            # Se for string única
+            elif isinstance(imagem_data, str) and imagem_data.strip():
+                print(f"📝 String única: {imagem_data}")
+                caminho = self._para_caminho_local(imagem_data.strip())
+            else:
+                print(f"❌ Tipo de dados inválido: {type(imagem_data)}")
+                return None
+            
+            # ✅ VALIDAÇÃO FINAL CRÍTICA
+            if caminho:
+                if os.path.isfile(caminho):
+                    if os.path.exists(caminho):
+                        print(f"✅ Imagem válida encontrada: {caminho}")
+                        return caminho
+                    else:
+                        print(f"❌ Arquivo não existe: {caminho}")
+                        return None
+                else:
+                    print(f"❌ Não é arquivo (pode ser diretório): {caminho}")
+                    # Verifica se é um diretório
+                    if os.path.isdir(caminho):
+                        print(f"❌ É UM DIRETÓRIO, não arquivo: {caminho}")
+                    return None
+            else:
+                print("❌ Conversão retornou None")
+                return None
+                
+        except Exception as e:
+            print(f"❌ Erro em _obter_imagem_local: {e}")
+            return None
 
     def _calcular_dificuldade(self, local):
         """Calcula dificuldade baseada no contexto"""
