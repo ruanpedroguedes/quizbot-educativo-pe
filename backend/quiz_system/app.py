@@ -1,687 +1,193 @@
-import pickle
-import os
 import random
-import pandas as pd
-from datetime import datetime
-from urllib.parse import urlparse
-from preprocessing.pre_processor_img import ImageProcessor
-from text_processor.perguntas_respostas import QuestionProcessor 
-from quiz_system.game_state import UserGameState
-from sklearn.metrics.pairwise import cosine_similarity
+from typing import Dict, Optional
+from .game_state import GameState
+from preprocessing.pre_processor_img import LightImageProcessor
+from text_processor.pre_processor_text import LightTextProcessor
 
 class QuizSystem:
-    def __init__(self, model_path=None, api_base_url="http://localhost:8000"):
-        
-        self.processor = QuestionProcessor()
-        self.image_processor = ImageProcessor() 
-        self.df = None
-        self.question_embeddings = None
-        self.locais_embeddings = None
-        self.users_sessions = {}
-        self.imagens_processadas = {}
-        self.api_base_url = api_base_url
-
-        # ✅ CARREGAR MODELO .pkl
-        self.classification_model = None
-        if model_path and os.path.exists(model_path):
-            try:
-                self.classification_model = self._load_pickle_model(model_path)
-                print("✅ Modelo .pkl carregado com sucesso!")
-            except Exception as e:
-                print(f"❌ Erro ao carregar modelo .pkl: {e}")
-                self.classification_model = None
+    def __init__(self):
+        self.game_state = GameState()
+        self.image_processor = LightImageProcessor()
+        self.text_processor = LightTextProcessor()
     
-    def _load_pickle_model(self, model_path):
-        """Carrega modelo do arquivo .pkl"""
-        with open(model_path, 'rb') as f:
-            model = pickle.load(f)
-        return model
+    def initialize_player(self, user_id: str):
+        """Inicializa estado do jogador - MÉTODO QUE ESTAVA FALTANDO"""
+        self.players[user_id] = {
+            'score': 0,
+            'current_stage': 0,
+            'current_place': None,
+            'answered_text': False,
+            'attempts': 0
+        }
+        self.attempts_tracker[user_id] = 0
     
-    def classify_with_model(self, contexto, tags=None):
-        """Classifica usando o modelo .pkl"""
-        if self.classification_model and hasattr(self.classification_model, 'predict'):
-            try:
-                return self.classification_model.predict(contexto, tags)
-            except Exception as e:
-                print(f"❌ Erro na classificação: {e}")
-                return None
-        return None
-
-    def treinamento(self, df):
-        """Função que estava faltando - treina o sistema com o dataset"""
-        self.df = df.copy()
+    def start_quiz(self, user_id: str) -> Dict:
+        """Inicia um novo quiz para o usuário - VERSÃO CORRIGIDA"""
+        self.game_state.initialize_player(user_id)
+        place = self.game_state.get_random_place(user_id)
         
-        print("🔄 Pré-computando embeddings...")
+        # Extrair informações da estrutura real
+        tags = place.get('tags', [])
+        main_tags = [tag for tag in tags if tag not in 
+                    {'turismo', 'história', 'cultura', 'natureza', 'praia', 'visita'}]
         
-        # Embeddings para os nomes dos locais (validação de resposta)
-        nomes_locais = self._extrair_nomes_locais(df)
-        self.locais_embeddings = self.processor.get_embeddings(nomes_locais)
-        
-        # Pré-Processamento de imagens
-        if not self.classification_model:
-            self._preprocessar_imagens_dataset()
-
-        print(f"✅ Sistema treinado com {len(df)} locais!")
-
-    def _preprocessar_imagens_dataset(self):
-        """Pré-processa as imagens do dataset"""
-        try:
-            # Extrai todos os caminhos de imagem únicos
-            caminhos_imagens = []
-            for idx, row in self.df.iterrows():
-                if 'imagem' in row and row['imagem'] is not None and row['imagem'] != '':
-                    # Se for uma lista, pega todas as URLs
-                    if isinstance(row['imagem'], list):
-                        for url in row['imagem']:
-                            if pd.notna(url) and url and isinstance(url, str):
-                                caminho_local = self._para_caminho_local(url)
-                                if caminho_local and os.path.exists(caminho_local):
-                                    caminhos_imagens.append(caminho_local)
-                    # Se for uma string única 
-                    elif isinstance(row['imagem'], str) and row['imagem'].strip():
-                        caminho_local = self._para_caminho_local(row['imagem'].strip())
-                        if caminho_local and os.path.exists(caminho_local):
-                            caminhos_imagens.append(caminho_local)
-            
-            # Remove duplicatas
-            caminhos_imagens = list(set(caminhos_imagens))
-            
-            print(f"🔄 Processando {len(caminhos_imagens)} imagens locais...")
-
-            if not caminhos_imagens:
-                print("⚠️  Nenhuma imagem válida encontrada no dataset")
-                return
-            
-            # Processa cada imagem
-            imagens_sucesso = 0
-            for i, caminho in enumerate(caminhos_imagens):
-                try:
-                    print(f"📸 [{i+1}/{len(caminhos_imagens)}] Processando: {caminho}")
-                    tensor = self.image_processor.process_single_image(caminho)
-                    if tensor is not None:
-                        self.imagens_processadas[caminho] = tensor
-                        imagens_sucesso += 1
-                        print(f"✅ Imagem processada: {caminho}")
-                    else:
-                        print(f"❌ Falha ao processar imagem: {caminho}")
-                except Exception as e:
-                    print(f"❌ Erro ao processar {caminho}: {e}")
-            
-            print(f"🎉 Pré-processamento concluído: {imagens_sucesso}/{len(caminhos_imagens)} imagens processadas")
-                
-        except Exception as e:
-            print(f"❌ Erro no pré-processamento de imagens: {e}")
-
-    def _extrair_nomes_locais(self, df):
-        """Extrai os nomes principais dos locais para validação"""
-        nomes = []
-        for contexto in df['contexto']:
-            # Extrai o nome do local do contexto (primeiras palavras)
-            nome = contexto.split('.')[0]  # Pega até o primeiro ponto
-            nome = nome.split(' é ')[0]    # Remove descrições
-            nome = nome.split(' fica ')[0] # Remove localizações
-            nome = nome.split(' localizado ')[0]
-            nomes.append(nome.strip())
-        return nomes
-
-    def _para_url_api(self, caminho_local):
-        """Converte caminho local para URL da API"""
-        if caminho_local.startswith('http'):
-            return caminho_local  
-        
-        nome_arquivo = os.path.basename(caminho_local)
-        return f"{self.api_base_url}/imagens/{nome_arquivo}"
-
-    def _para_caminho_local(self, caminho):
-        """Converte URL/path para caminho local com validações robustas"""
-        try:
-            if not caminho or not isinstance(caminho, str):
-                return None
-                
-            caminho = caminho.strip()
-            if not caminho:
-                return None
-            
-            print(f"🔄 Convertendo para caminho local: {caminho}")
-            
-            if caminho.startswith('http'):
-                # Extrai nome do arquivo da URL
-                parsed = urlparse(caminho)
-                nome_arquivo = os.path.basename(parsed.path)
-                
-                if not nome_arquivo:
-                    print(f"❌ Não foi possível extrair nome do arquivo da URL: {caminho}")
-                    return None
-                    
-                # Remove parâmetros de query se existirem
-                if '?' in nome_arquivo:
-                    nome_arquivo = nome_arquivo.split('?')[0]
-                
-                # Verifica se o nome do arquivo tem extensão de imagem
-                extensoes_imagem = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
-                tem_extensao = any(nome_arquivo.lower().endswith(ext) for ext in extensoes_imagem)
-                
-                if not tem_extensao:
-                    print(f"⚠️  Nome de arquivo sem extensão de imagem: {nome_arquivo}")
-                    # Continua mesmo sem extensão, pode ser válido
-                
-                # Procura em vários diretórios possíveis
-                diretorios_procura = [
-                    'backend/imagens',
-                    'backend/dataset', 
-                    'imagens',
-                    'dataset',
-                    'backend/imagens/dataset',
-                    'backend/imagens_treinamento'
-                ]
-
-                for diretorio in diretorios_procura:
-                    caminho_local = os.path.join(diretorio, nome_arquivo)
-                    if os.path.isfile(caminho_local) and os.path.exists(caminho_local):
-                        print(f"✅ Imagem encontrada: {caminho_local}")
-                        return caminho_local
-                
-                print(f"❌ Imagem não encontrada em nenhum diretório: {nome_arquivo}")
-                return None
-                
-            else:
-                # Já é um caminho local - valida se é arquivo
-                if os.path.isfile(caminho) and os.path.exists(caminho):
-                    print(f"✅ Caminho local válido: {caminho}")
-                    return caminho
-                else:
-                    # Tenta encontrar o arquivo nos diretórios de imagem
-                    nome_arquivo = os.path.basename(caminho)
-                    diretorios_procura = [
-                        'backend/imagens',
-                        'backend/dataset', 
-                        'imagens',
-                        'dataset'
-                    ]
-                    
-                    for diretorio in diretorios_procura:
-                        caminho_local = os.path.join(diretorio, nome_arquivo)
-                        if os.path.isfile(caminho_local) and os.path.exists(caminho_local):
-                            print(f"✅ Imagem encontrada: {caminho_local}")
-                            return caminho_local
-                    
-                    print(f"❌ Caminho local não é arquivo ou não existe: {caminho}")
-                    return None
-                    
-        except Exception as e:
-            print(f"❌ Erro em _para_caminho_local para '{caminho}': {e}")
-            return None
-
-    def criar_ou_recuperar_sessao(self, nome_usuario):
-        """Cria uma nova sessão ou recupera existente pelo nome"""
-        if nome_usuario in self.users_sessions:
-            # Retorna sessão existente
-            return self.users_sessions[nome_usuario].session_id
-        else:
-            # Cria nova sessão
-            session = UserGameState(nome_usuario)
-            self.users_sessions[nome_usuario] = session
-            print(f"🎮 Nova sessão criada para: {nome_usuario}")
-            return session.session_id
-    
-    def get_estatisticas_usuario(self, nome_usuario):
-        """Retorna estatísticas do usuário"""
-        if nome_usuario not in self.users_sessions:
-            return None
-        return self.users_sessions[nome_usuario].to_dict()
-    
-    def nova_questao(self, nome_usuario, tema=None):
-        if nome_usuario not in self.users_sessions:
-            return {'erro': 'Usuário não encontrado. Crie uma sessão primeiro.'}
-        
-        session = self.users_sessions[nome_usuario]
-        
-        # ✅ TENTA USAR MODELO .pkl PRIMEIRO
-        if self.classification_model:
-            resultado = self._nova_questao_com_modelo(session)
-            if resultado and 'erro' not in resultado:
-                return resultado
-        
-        # ✅ FALLBACK: modo legado
-        return self._nova_questao_legado(session)
-    
-    def _nova_questao_com_modelo(self, session):
-        """Gera questão usando modelo .pkl"""
-        max_tentativas = 5
-        for tentativa in range(max_tentativas):
-            idx = random.randint(0, len(self.df) - 1)
-            local = self.df.iloc[idx]
-            
-            # Usa o modelo para classificar/validar
-            classificacao = self.classify_with_model(
-                local['contexto'], 
-                local.get('tags', [])
-            )
-            
-            if classificacao and classificacao['confidence'] > 0.3:  # Threshold mais baixo para teste
-                imagem_path = self._obter_imagem_local(local)
-                if imagem_path and os.path.exists(imagem_path):
-                    # Processa imagem
-                    imagem_tensor = self.image_processor.process_single_image(imagem_path)
-                    
-                    if imagem_tensor is not None:
-                        imagem_url = self._para_url_api(imagem_path)
-                        
-                        session.questao_atual = {
-                            'id': idx,
-                            'pergunta': "Que local é esse da imagem?",
-                            'imagem': imagem_url,
-                            'imagem_tensor': imagem_tensor,
-                            'dica': self._gerar_dica_identificacao(local),
-                            'tags': local.get('tags', []),
-                            'dificuldade': self._calcular_dificuldade(local),
-                            'resposta_correta': local['contexto'],
-                            'nome_local': classificacao['predicted_class'],
-                            'confianca_modelo': classificacao['confidence']
-                        }
-                        session.resposta_correta = local['contexto']
-                        session.tentativas = 0
-                        
-                        return {
-                            'questao': session.questao_atual,
-                            'session_id': session.session_id,
-                            'modo': 'modelo_pkl'
-                        }
-        
-        return {'erro': 'Não foi possível gerar questão com o modelo'}
-    
-    def _nova_questao_legado(self, session):
-        """Método legado baseado em similaridade"""
-        max_tentativas = 10
-        for tentativa in range(max_tentativas):
-            idx = random.randint(0, len(self.df) - 1)
-            local = self.df.iloc[idx]
-
-            # Processa imagem sob demanda
-            imagem_path = self._obter_imagem_local(local)
-            if imagem_path and os.path.exists(imagem_path):
-                imagem_tensor = self.image_processor.process_single_image(imagem_path)
-                
-                if imagem_tensor is not None:
-                    imagem_url = self._para_url_api(imagem_path)
-                    
-                    session.questao_atual = {
-                        'id': idx,
-                        'pergunta': "Que local é esse da imagem?",
-                        'imagem': imagem_url,  
-                        'imagem_tensor': imagem_tensor,
-                        'dica': self._gerar_dica_identificacao(local),
-                        'tags': local.get('tags', []),
-                        'dificuldade': self._calcular_dificuldade(local),
-                        'resposta_correta': local['contexto'],
-                        'nome_local': self._extrair_nome_do_contexto(local['contexto']),
-                        'caminho_local': imagem_path  
-                    }
-                    session.resposta_correta = local['contexto']
-                    session.tentativas = 0
-                    
-                    return {
-                        'questao': session.questao_atual,
-                        'session_id': session.session_id,
-                        'modo': 'legado'
-                    }
-        
-        return {'erro': 'Não foi possível gerar uma questão com imagem no momento.'}
-
-    def _obter_imagem_local(self, local):
-        """Obtém caminho de imagem local válido com validações robustas"""
-        try:
-            print(f"🔍 Obtendo imagem para local: {self._extrair_nome_do_contexto(local['contexto'])[:20]}...")
-            
-            if 'imagem' not in local or pd.isna(local['imagem']):
-                print("❌ Local sem dados de imagem")
-                return None
-            
-            imagem_data = local['imagem']
-            caminho = None
-            
-            # Se for lista, escolhe uma imagem aleatória válida
-            if isinstance(imagem_data, list) and imagem_data:
-                print(f"📋 Lista de imagens: {imagem_data}")
-                # Filtra entradas válidas
-                urls_validas = [url for url in imagem_data 
-                            if isinstance(url, str) and url.strip()]
-                
-                if not urls_validas:
-                    print("❌ Nenhuma URL válida na lista")
-                    return None
-                    
-                url_imagem = random.choice(urls_validas)
-                print(f"🎯 URL escolhida: {url_imagem}")
-                caminho = self._para_caminho_local(url_imagem.strip())
-            
-            # Se for string única
-            elif isinstance(imagem_data, str) and imagem_data.strip():
-                print(f"📝 String única: {imagem_data}")
-                caminho = self._para_caminho_local(imagem_data.strip())
-            else:
-                print(f"❌ Tipo de dados inválido: {type(imagem_data)}")
-                return None
-            
-            # ✅ VALIDAÇÃO FINAL CRÍTICA
-            if caminho:
-                if os.path.isfile(caminho):
-                    if os.path.exists(caminho):
-                        print(f"✅ Imagem válida encontrada: {caminho}")
-                        return caminho
-                    else:
-                        print(f"❌ Arquivo não existe: {caminho}")
-                        return None
-                else:
-                    print(f"❌ Não é arquivo (pode ser diretório): {caminho}")
-                    # Verifica se é um diretório
-                    if os.path.isdir(caminho):
-                        print(f"❌ É UM DIRETÓRIO, não arquivo: {caminho}")
-                    return None
-            else:
-                print("❌ Conversão retornou None")
-                return None
-                
-        except Exception as e:
-            print(f"❌ Erro em _obter_imagem_local: {e}")
-            return None
-
-    def _calcular_dificuldade(self, local):
-        """Calcula dificuldade baseada no contexto"""
-        contexto = local['contexto']
-        palavras = len(contexto.split())
-        
-        if palavras < 10:
-            return "Fácil"
-        elif palavras < 20:
-            return "Médio"
-        else:
-            return "Difícil"
-
-    def _gerar_dica_identificacao(self, local):
-        """Gera dicas específicas para identificação de imagem"""
-        contexto = local['contexto']
-        tags = local.get('tags', [])
-        
-        dicas = []
-        
-        # Dica baseada em tags
-        if tags:
-            tags_faceis = [tag for tag in tags if tag in ['praia', 'cidade', 'parque', 'museu', 'igreja', 'centro', 'histórico']]
-            if tags_faceis:
-                dicas.append(f"💡 É um {tags_faceis[0]}")
-        
-        # Dica baseada no tipo de local
-        contexto_lower = contexto.lower()
-        if any(word in contexto_lower for word in ['praia', 'mar', 'litoral']):
-            dicas.append("🌊 Fica no litoral")
-        elif any(word in contexto_lower for word in ['museu', 'histórico', 'patrimônio']):
-            dicas.append("🏛️ Local histórico")
-        elif any(word in contexto_lower for word in ['parque', 'natureza', 'verde']):
-            dicas.append("🌳 Área natural")
-        elif any(word in contexto_lower for word in ['centro', 'cidade', 'urbano']):
-            dicas.append("🏙️ Área urbana")
-        
-        # Dica da localização
-        if 'recife' in contexto_lower:
-            dicas.append("📍 Fica no Recife")
-        elif 'olinda' in contexto_lower:
-            dicas.append("📍 Fica em Olinda")
-        elif 'noronha' in contexto_lower:
-            dicas.append("📍 Arquipélago famoso")
-        
-        # Dica do nome (número de palavras)
-        nome = self._extrair_nome_do_contexto(contexto)
-        if nome and len(nome.split()) > 1:
-            dicas.append(f"📝 O nome tem {len(nome.split())} palavras")
-        elif nome:
-            dicas.append(f"📝 Começa com '{nome[0].upper()}'")
-        
-        return random.choice(dicas) if dicas else "💡 Ponto turístico famoso de Pernambuco"
-
-    def _extrair_nome_do_contexto(self, contexto):
-        """Extrai o nome do local do contexto"""
-        # Remove descrições comuns
-        descricoes = ['é um', 'é uma', 'fica', 'localizado', 'situado', 'conhecido']
-        nome = contexto.split('.')[0]
-        
-        for desc in descricoes:
-            if desc in nome:
-                nome = nome.split(desc)[0]
-        
-        return nome.strip()
-
-    def validar_resposta_identificacao(self, nome_usuario, resposta_usuario):
-        """Valida a resposta para identificação de imagem e retorna info completa"""
-        if nome_usuario not in self.users_sessions:
-            return {'valido': False, 'erro': 'Usuário não encontrado'}
-        
-        session = self.users_sessions[nome_usuario]
-        
-        if not session.questao_atual:
-            return {'valido': False, 'erro': 'Nenhuma questão ativa'}
-        
-        session.tentativas += 1
-        session.questoes_respondidas += 1
-        
-        # Calcula similaridade entre resposta e nome do local correto
-        resposta_embedding = self.processor.get_embeddings([resposta_usuario])[0]
-        nome_correto = session.questao_atual['nome_local']
-        nome_correto_embedding = self.processor.get_embeddings([nome_correto])[0]
-        
-        similaridade = cosine_similarity([resposta_embedding], [nome_correto_embedding])[0][0]
-        
-        print(f"🔍 Validando: '{resposta_usuario}' vs '{nome_correto}' - Similaridade: {similaridade:.3f}")
-        
-        # Threshold para identificação 
-        threshold = 0.65
-        
-        if similaridade > threshold:
-            # Prepara resposta completa
-            pontos = self._calcular_pontos_identificacao(similaridade, session.tentativas)
-            session.pontuacao += pontos
-            session.acertos += 1
-            
-            # Busca informações completas do local
-            info_local = self._obter_informacoes_completas(session.questao_atual['id'])
-            
-            session.historico.append({
-                'tipo': 'identificacao_imagem',
-                'questao': session.questao_atual['pergunta'],
-                'imagem': session.questao_atual['imagem'],
-                'resposta_usuario': resposta_usuario,
-                'resposta_correta': session.resposta_correta,
-                'nome_correto': nome_correto,
-                'tentativas': session.tentativas,
-                'similaridade': float(similaridade),
-                'pontos_ganhos': pontos,
-                'timestamp': datetime.now().isoformat()
-            })
-            
-            # Prepara próxima questão
-            proxima_questao = self.nova_questao(nome_usuario)
-            
-            return {
-                'valido': True,
-                'acertou': True,
-                'pontuacao': session.pontuacao,
-                'pontos_ganhos': pontos,
-                'resposta_correta': session.resposta_correta,
-                'nome_local_correto': nome_correto,
-                'tentativas': session.tentativas,
-                'similaridade': float(similaridade),
-                'feedback': self._gerar_feedback_identificacao(similaridade),
-                'informacoes_local': info_local,  
-                'proxima_questao': proxima_questao.get('questao') if not proxima_questao.get('erro') else None
-            }
-        
-        else:
-            # Não acertou
-            return {
-                'valido': True,
-                'acertou': False,
-                'feedback': self._gerar_feedback_erro_identificacao(similaridade, session.tentativas),
-                'tentativas': session.tentativas,
-                'similaridade': float(similaridade),
-                'dica_extra': session.questao_atual['dica'] if session.tentativas >= 2 else None
-            }
-
-    def _calcular_pontos_identificacao(self, similaridade, tentativas):
-        """Calcula pontos para identificação (mais pontos por ser mais difícil)"""
-        base_points = 150  # Base maior
-        similarity_bonus = int(similaridade * 75)  # Bônus maior
-        speed_bonus = max(0, 75 - (tentativas * 25))  # Bônus por velocidade
-        
-        return base_points + similarity_bonus + speed_bonus
-
-    def _gerar_feedback_identificacao(self, similaridade):
-        """Gera feedback para acerto na identificação"""
-        if similaridade > 0.85:
-            return "🎉 **PERFEITO!** Você identificou com precisão!"
-        elif similaridade > 0.75:
-            return "✅ **EXCELENTE!** Quase perfeito!"
-        elif similaridade > 0.65:
-            return "👍 **MUITO BOM!** Identificou corretamente!"
-        else:
-            return "👏 **CERTO!** Você acertou o local!"
-
-    def _gerar_feedback_erro_identificacao(self, similaridade, tentativas):
-        """Gera feedback para erro na identificação"""
-        if tentativas == 1:
-            if similaridade > 0.5:
-                return "❌ Quase! Mas não é exatamente esse local..."
-            else:
-                return "❌ Não é esse local... Tente novamente!"
-        elif tentativas == 2:
-            return "❌ Ainda não... Observe bem a imagem e pense em locais famosos!"
-        else:
-            return "❌ Vamos tentar de outra forma... Que tal uma dica?"
-
-    def _obter_informacoes_completas(self, id_local):
-        """Retorna informações completas sobre o local"""
-        try:
-            local = self.df.iloc[id_local]
-            
-            # Formata informações de forma educativa
-            informacoes = {
-                'nome': self._extrair_nome_do_contexto(local['contexto']),
-                'descricao_completa': local['contexto'],
-                'curiosidades': self._gerar_curiosidades(local),
-                'tags': local.get('tags', []),
-                'dica_turistica': self._gerar_dica_turistica(local),
-                'imagem': local.get('imagem', '')
-            }
-            
-            return informacoes
-            
-        except Exception as e:
-            print(f"❌ Erro ao obter informações do local: {e}")
-            return None
-
-    def _gerar_curiosidades(self, local):
-        """Gera curiosidades baseadas no contexto"""
-        contexto = local['contexto'].lower()
-        tags = local.get('tags', [])
-        curiosidades = []
-        
-        # Curiosidades baseadas no conteúdo
-        if any(word in contexto for word in ['patrimônio', 'unesco', 'histórico']):
-            curiosidades.append("🏛️ É um Patrimônio Histórico ou Cultural")
-        
-        if any(word in contexto for word in ['praia', 'mar', 'litoral']):
-            curiosidades.append("🌊 Local perfeito para banho e fotos")
-        
-        if any(word in contexto for word in ['natureza', 'parque', 'verde']):
-            curiosidades.append("🌳 Ótimo para contato com a natureza")
-        
-        if any(word in contexto for word in ['famoso', 'conhecido', 'visitado']):
-            curiosidades.append("⭐ Um dos pontos mais visitados da região")
-        
-        # Curiosidades baseadas em tags
-        if 'gastronomia' in tags:
-            curiosidades.append("🍽️ Oferece opções de gastronomia local")
-        
-        if 'cultura' in tags:
-            curiosidades.append("🎭 Local com rica programação cultural")
-        
-        if 'aventura' in tags:
-            curiosidades.append("🚀 Ideal para atividades de aventura")
-        
-        return curiosidades[:3]  # Limita a 3 curiosidades
-
-    def _gerar_dica_turistica(self, local):
-        """Gera dica turística prática"""
-        contexto = local['contexto'].lower()
-        
-        if any(word in contexto for word in ['praia', 'mar']):
-            return "💡 Dica: Leve protetor solar e aproveite o pôr do sol!"
-        
-        elif any(word in contexto for word in ['museu', 'histórico']):
-            return "💡 Dica: Visite durante a semana para evitar filas!"
-        
-        elif any(word in contexto for word in ['parque', 'natureza']):
-            return "💡 Dica: Use roupas confortáveis e leve água!"
-        
-        elif any(word in contexto for word in ['centro', 'cidade']):
-            return "💡 Dica: Melhor visitar durante o dia para aproveitar o comércio local!"
-        
-        else:
-            return "💡 Dica: Não esqueça a câmera para registrar o momento!"
-
-    def desistir(self, nome_usuario):
-        """Revela a resposta e gera nova questão"""
-        if nome_usuario not in self.users_sessions:
-            return {'erro': 'Usuário não encontrado'}
-        
-        session = self.users_sessions[nome_usuario]
-        
-        if not session.questao_atual:
-            return {'erro': 'Nenhuma questão ativa'}
-        
-        resposta_correta = session.resposta_correta
-        info_local = self._obter_informacoes_completas(session.questao_atual['id'])
-        proxima_questao = self.nova_questao(nome_usuario)
+        place_name = main_tags[0] if main_tags else "Local de Pernambuco"
         
         return {
-            'resposta_correta': resposta_correta,
-            'informacoes_local': info_local,
-            'proxima_questao': proxima_questao.get('questao') if not proxima_questao.get('erro') else None
+            "success": True,
+            "user_id": user_id,
+            "place_data": {
+                "nome": place_name,
+                "imagem": place.get('imagem', [])[0] if place.get('imagem') else "",
+                "pergunta": "Que lugar é este?",  # Pergunta fixa para o quiz
+                "contexto": place.get('contexto', '')[:100] + "..."
+            },
+            "message": "🎮 Quiz iniciado! Adivinhe o lugar na imagem."
         }
-
-    def get_ranking(self):
-        """Retorna ranking por pontuação"""
-        users_ordenados = sorted(
-            self.users_sessions.values(), 
-            key=lambda x: x.pontuacao, 
-            reverse=True
-        )
-        
-        return [
-            {
-                'posicao': i + 1,
-                'nome_usuario': user.nome_usuario,
-                'pontuacao': user.pontuacao,
-                'acertos': user.acertos,
-                'questoes_respondidas': user.questoes_respondidas
-            }
-            for i, user in enumerate(users_ordenados[:10])
-        ]
-
-    def get_info_imagem(self, caminho_imagem):
-        """Retorna informações sobre uma imagem processada"""
-        if caminho_imagem in self.imagens_processadas:
-            tensor = self.imagens_processadas[caminho_imagem]
+    
+    async def process_text_answer(self, user_id: str, user_answer: str) -> Dict:
+        """Processa a resposta em texto do usuário"""
+        try:
+            validation_result = self.game_state.validate_text_answer(
+                user_id, user_answer, self.text_processor
+            )
+            
+            if validation_result['correct']:
+                return {
+                    "success": True,
+                    "correct": True,
+                    "message": "🎉 Parabéns! Você acertou! Agora envie uma foto deste local para ganhar mais pontos.",
+                    "score": self.game_state.get_player_score(user_id),
+                    "attempts": validation_result['attempts'],
+                    "hint": None,
+                    "next_action": "upload_image"
+                }
+            else:
+                return {
+                    "success": True,
+                    "correct": False,
+                    "message": f"❌ Resposta incorreta. {validation_result['hint']}",
+                    "score": self.game_state.get_player_score(user_id),
+                    "attempts": validation_result['attempts'],
+                    "hint": validation_result['hint'],
+                    "next_action": "retry_text"
+                }
+                
+        except Exception as e:
             return {
-                'processada': True,
-                'shape': tuple(tensor.shape),
-                'caminho': caminho_imagem
+                "success": False,
+                "error": f"Erro ao processar resposta: {str(e)}"
             }
-        else:
+    
+    async def process_image_upload(self, user_id: str, image_bytes: bytes) -> Dict:
+        """Processa a imagem enviada pelo usuário"""
+        try:
+            is_correct = await self.game_state.validate_image_answer(
+                user_id, image_bytes, self.image_processor
+            )
+            
+            if is_correct:
+                final_score = self.game_state.get_player_score(user_id)
+                return {
+                    "success": True,
+                    "correct": True,
+                    "message": "📸 Excelente! Foto correta! Você completou esta rodada.",
+                    "score": final_score,
+                    "points_earned": 1,
+                    "next_action": "quiz_completed"
+                }
+            else:
+                return {
+                    "success": True,
+                    "correct": False,
+                    "message": "📷 Esta foto não parece ser do local correto. Tente novamente!",
+                    "score": self.game_state.get_player_score(user_id),
+                    "next_action": "retry_image"
+                }
+                
+        except Exception as e:
             return {
-                'processada': False,
-                'caminho': caminho_imagem
+                "success": False,
+                "error": f"Erro ao processar imagem: {str(e)}"
             }
-
-    def validar_resposta(self, nome_usuario, resposta_usuario, imagem_usuario=None):
-        """Método legado para compatibilidade"""
-        return self.validar_resposta_identificacao(nome_usuario, resposta_usuario)
+    
+    def get_user_progress(self, user_id: str) -> Dict:
+        """Retorna o progresso atual do usuário"""
+        try:
+            stage = self.game_state.get_current_stage(user_id)
+            score = self.game_state.get_player_score(user_id)
+            attempts = self.game_state.get_attempts(user_id)
+            current_place = self.game_state.players.get(user_id, {}).get('current_place')
+            
+            stage_descriptions = {
+                0: "aguardando_resposta_texto",
+                1: "aguardando_upload_imagem"
+            }
+            
+            return {
+                "success": True,
+                "user_id": user_id,
+                "score": score,
+                "attempts": attempts,
+                "current_stage": stage_descriptions.get(stage, "unknown"),
+                "current_place": current_place.get('nome') if current_place else None,
+                "has_answered_text": self.game_state.players.get(user_id, {}).get('answered_text', False)
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Erro ao buscar progresso: {str(e)}"
+            }
+    
+    def get_leaderboard(self) -> Dict:
+        """Retorna ranking de jogadores"""
+        try:
+            players = self.game_state.players
+            leaderboard = sorted(
+                [(user_id, data['score']) for user_id, data in players.items()],
+                key=lambda x: x[1],
+                reverse=True
+            )[:10]  # Top 10
+            
+            return {
+                "success": True,
+                "leaderboard": [
+                    {"user_id": user_id, "score": score} 
+                    for user_id, score in leaderboard
+                ]
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Erro ao gerar leaderboard: {str(e)}"
+            }
+    
+    def skip_question(self, user_id: str) -> Dict:
+        """Pula a pergunta atual e revela a resposta"""
+        try:
+            current_place = self.game_state.players.get(user_id, {}).get('current_place')
+            if current_place:
+                place_name = current_place.get('nome', 'Desconhecido')
+                
+                # Reset para próxima pergunta
+                self.game_state.players[user_id]['current_stage'] = 0
+                self.game_state.players[user_id]['answered_text'] = False
+                self.game_state.players[user_id]['current_place'] = None
+                self.game_state.players[user_id]['attempts'] = 0
+                
+                return {
+                    "success": True,
+                    "message": f"🔁 Pergunta pulada! A resposta era: {place_name}",
+                    "correct_answer": place_name,
+                    "next_action": "new_question"
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": "Nenhuma pergunta ativa para pular"
+                }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Erro ao pular pergunta: {str(e)}"
+            }

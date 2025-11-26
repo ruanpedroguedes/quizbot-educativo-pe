@@ -1,104 +1,75 @@
-# Importando Bibliotecas LEVES
+import cv2
 import numpy as np
-from PIL import Image 
-from sklearn.metrics.pairwise import cosine_similarity
+from PIL import Image
+import io
 import requests
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.feature_extraction.image import extract_patches_2d
 import os
-from io import BytesIO
 
-class ImageProcessor:
+class LightImageProcessor:
     def __init__(self):
-        self.target_size = (224, 224)
-        # Parâmetros de normalização (mesmos do ImageNet para compatibilidade)
-        self.mean = np.array([0.485, 0.456, 0.406])
-        self.std = np.array([0.229, 0.224, 0.225])
-        print("✅ ImageProcessor inicializado (versão leve)")
-    
-    def process_single_image(self, img_path):
-        """
-        Processa uma única imagem - suporta URLs e arquivos locais
-        """
-        try:
-            # Verifica se é uma URL
-            if img_path.startswith('http'):
-                return self._process_url_image(img_path)
-            else:
-                return self._process_local_image(img_path)
-        except Exception as e:
-            print(f"❌ Erro ao processar {img_path}: {e}")
-            return None
+        self.sift = cv2.SIFT_create()
+        self.orb = cv2.ORB_create()
         
-    def _process_url_image(self, url):
-        #Processa imagem a partir de URL"""
+    async def download_image(self, url: str) -> np.ndarray:
+        """Baixa imagem da URL e converte para array"""
         try:
-            print(f"🌐 Baixando imagem da URL: {url}")
-            response = requests.get(url, timeout=30)
+            response = requests.get(url)
             response.raise_for_status()
-            
-            # Abre a imagem do conteúdo da resposta
-            img = Image.open(BytesIO(response.content)).convert('RGB')
-            return self._process_image_object(img)
-            
+            image = Image.open(io.BytesIO(response.content))
+            return np.array(image.convert('RGB'))
         except Exception as e:
-            print(f"❌ Erro ao baixar/processar URL {url}: {e}")
+            print(f"Erro ao baixar imagem: {e}")
             return None
     
-    def _process_local_image(self, file_path):
-        """Processa imagem a partir de arquivo local"""
-        try:
-            if not os.path.exists(file_path):
-                print(f"❌ Arquivo não encontrado: {file_path}")
-                return None
-            
-            img = Image.open(file_path).convert('RGB')
-            return self._process_image_object(img)
-            
-        except Exception as e:
-            print(f"❌ Erro ao processar arquivo local {file_path}: {e}")
-            return None
+    def extract_features(self, image: np.ndarray) -> np.ndarray:
+        """Extrai features leves usando ORB + Histograma de cores"""
+        # Converter para escala de cinza
+        gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
         
-    def _process_image_object(self, img):
-        """Processa o objeto PIL Image"""
-        try:
-            # Redimensiona
-            img_resized = img.resize(self.target_size)
-            
-            # Converte para numpy array
-            img_array = np.array(img_resized, dtype=np.float32)
-            
-            # Normaliza [0, 1]
-            img_array = img_array / 255.0
-            
-            # Normaliza com mean/std
-            img_array = (img_array - self.mean) / self.std
-            
-            # Muda para formato (C, H, W)
-            img_array = np.transpose(img_array, (2, 0, 1))
-            
-            # Adiciona dimensão do batch
-            img_array = np.expand_dims(img_array, axis=0)
-            
-            return img_array
-            
-        except Exception as e:
-            print(f"❌ Erro no processamento da imagem: {e}")
-            return None
-
-    def calculate_similarity(self, img_array1, img_array2): 
-        #Calcula similaridade entre duas imagens usando cosine similarity
-        try:
-            # Verifica se os arrays não são None
-            if img_array1 is None or img_array2 is None:
-                return 0.0
-            
-            # Achata os arrays para vetores 1D
-            flat1 = img_array1.flatten()
-            flat2 = img_array2.flatten()
-            
-            # Calcula similaridade do cosseno
-            similarity = cosine_similarity([flat1], [flat2])[0][0]
-            return similarity
-            
-        except Exception as e:
-            print(f"❌ Erro no cálculo de similaridade: {e}")
-            return 0.0
+        # Features ORB
+        keypoints, descriptors = self.orb.detectAndCompute(gray, None)
+        
+        # Histograma de cores (HSV)
+        hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+        hist = cv2.calcHist([hsv], [0, 1, 2], None, [8, 8, 8], [0, 256, 0, 256, 0, 256])
+        hist = cv2.normalize(hist, hist).flatten()
+        
+        # Combinar features
+        if descriptors is not None:
+            desc_mean = np.mean(descriptors, axis=0)
+            if desc_mean is not None:
+                features = np.concatenate([desc_mean, hist])
+                return features
+        
+        return hist
+    
+    async def compare_images(self, user_image: np.ndarray, reference_urls: list) -> float:
+        """Compara imagem do usuário com imagens de referência"""
+        user_features = self.extract_features(user_image)
+        
+        best_similarity = 0
+        for ref_url in reference_urls:
+            ref_image = await self.download_image(ref_url)
+            if ref_image is not None:
+                ref_features = self.extract_features(ref_image)
+                
+                # Calcular similaridade do cosseno
+                similarity = cosine_similarity([user_features], [ref_features])[0][0]
+                best_similarity = max(best_similarity, similarity)
+        
+        return best_similarity
+    
+    async def validate_user_image(self, user_image_bytes: bytes, correct_place_data: dict) -> bool:
+        """Valida se a imagem do usuário corresponde ao local correto"""
+        # Converter bytes para array
+        user_image = Image.open(io.BytesIO(user_image_bytes))
+        user_array = np.array(user_image.convert('RGB'))
+        
+        # Comparar com imagens de referência do local
+        reference_urls = correct_place_data.get('imagem', [])
+        similarity = await self.compare_images(user_array, reference_urls)
+        
+        # Threshold ajustável - pode calibrar conforme necessidade
+        return similarity > 0.6
