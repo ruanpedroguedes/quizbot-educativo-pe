@@ -1,78 +1,104 @@
-#Importando Bibliotecas
-import pandas as pd
+# Importando Bibliotecas LEVES
 import numpy as np
-import torch
-import torchvision.transforms as transforms
 from PIL import Image 
-import cv2
+from sklearn.metrics.pairwise import cosine_similarity
+import requests
 import os
-import matplotlib.pyplot as plt
+from io import BytesIO
 
-#Lendo dataset 
-df_read = pd.read_json("datasets/dataset_pernambuco_25_turistas.json")
-
-all_imgs = df_read["imagem"]
-for i in range(len(all_imgs)):
-    print(f"🎯 Encontradas {all_imgs[i]}")
-
-#Pré-processamento de Imagens com o t-50
 class ImageProcessor:
     def __init__(self):
-        self.transform = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ])
-
-#Pré-processamento de Imagens com o ResNet-50
-    def process_img(self, img_paths):
-        processed = []
-        for path in img_paths:
-              try:
-                  img = Image.open(path).convert('RGB')
-                  processed.append(self.transform(img))
-              except Exception as e:
-                print(f"❌ Erro em {path}: {e}")
+        self.target_size = (224, 224)
+        # Parâmetros de normalização (mesmos do ImageNet para compatibilidade)
+        self.mean = np.array([0.485, 0.456, 0.406])
+        self.std = np.array([0.229, 0.224, 0.225])
+        print("✅ ImageProcessor inicializado (versão leve)")
     
-        return torch.stack(processed) if processed else None
-#Processa uma unica imagem
     def process_single_image(self, img_path):
+        """
+        Processa uma única imagem - suporta URLs e arquivos locais
+        """
         try:
-            img = Image.open(img_path).convert('RGB')
-            return self.transform(img).unsqueeze(0)  
+            # Verifica se é uma URL
+            if img_path.startswith('http'):
+                return self._process_url_image(img_path)
+            else:
+                return self._process_local_image(img_path)
         except Exception as e:
             print(f"❌ Erro ao processar {img_path}: {e}")
             return None
+        
+    def _process_url_image(self, url):
+        #Processa imagem a partir de URL"""
+        try:
+            print(f"🌐 Baixando imagem da URL: {url}")
+            response = requests.get(url, timeout=30)
+            response.raise_for_status()
+            
+            # Abre a imagem do conteúdo da resposta
+            img = Image.open(BytesIO(response.content)).convert('RGB')
+            return self._process_image_object(img)
+            
+        except Exception as e:
+            print(f"❌ Erro ao baixar/processar URL {url}: {e}")
+            return None
+    
+    def _process_local_image(self, file_path):
+        """Processa imagem a partir de arquivo local"""
+        try:
+            if not os.path.exists(file_path):
+                print(f"❌ Arquivo não encontrado: {file_path}")
+                return None
+            
+            img = Image.open(file_path).convert('RGB')
+            return self._process_image_object(img)
+            
+        except Exception as e:
+            print(f"❌ Erro ao processar arquivo local {file_path}: {e}")
+            return None
+        
+    def _process_image_object(self, img):
+        """Processa o objeto PIL Image"""
+        try:
+            # Redimensiona
+            img_resized = img.resize(self.target_size)
+            
+            # Converte para numpy array
+            img_array = np.array(img_resized, dtype=np.float32)
+            
+            # Normaliza [0, 1]
+            img_array = img_array / 255.0
+            
+            # Normaliza com mean/std
+            img_array = (img_array - self.mean) / self.std
+            
+            # Muda para formato (C, H, W)
+            img_array = np.transpose(img_array, (2, 0, 1))
+            
+            # Adiciona dimensão do batch
+            img_array = np.expand_dims(img_array, axis=0)
+            
+            return img_array
+            
+        except Exception as e:
+            print(f"❌ Erro no processamento da imagem: {e}")
+            return None
 
-# Vendo o resultado final das imagens para teste
-def show_processed_preview(processed_tensors):
-    num_images = len(processed_tensors)
-    
-    # Configurar o layout
-    fig, axes = plt.subplots(1, num_images, figsize=(15, 3))
-    
-    # Se for apenas 1 imagem, converter para lista
-    if num_images == 1:
-        axes = [axes]
-    
-    for i in range(num_images):
-        # Pegar tensor da imagem i
-        tensor_img = processed_tensors[i]
-        
-        # Converter para numpy e ajustar dimensões (C, H, W) -> (H, W, C)
-        img_np = tensor_img.numpy().transpose(1, 2, 0)
-        
-        # Desnormalizar para visualização
-        mean = np.array([0.485, 0.456, 0.406])
-        std = np.array([0.229, 0.224, 0.225])
-        img_np = img_np * std + mean
-        img_np = np.clip(img_np, 0, 1)  # Limitar entre 0 e 1
-        
-        # Mostrar imagem
-        axes[i].imshow(img_np)
-        axes[i].set_title(f'Img {i+1}\n{tensor_img.shape}')
-        axes[i].axis('off')
-    
-    plt.tight_layout()
-    plt.show()
+    def calculate_similarity(self, img_array1, img_array2): 
+        #Calcula similaridade entre duas imagens usando cosine similarity
+        try:
+            # Verifica se os arrays não são None
+            if img_array1 is None or img_array2 is None:
+                return 0.0
+            
+            # Achata os arrays para vetores 1D
+            flat1 = img_array1.flatten()
+            flat2 = img_array2.flatten()
+            
+            # Calcula similaridade do cosseno
+            similarity = cosine_similarity([flat1], [flat2])[0][0]
+            return similarity
+            
+        except Exception as e:
+            print(f"❌ Erro no cálculo de similaridade: {e}")
+            return 0.0
