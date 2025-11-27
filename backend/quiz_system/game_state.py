@@ -182,20 +182,25 @@ class GameState:
         return self.players.get(user_id, {}).get('attempts', 0)
     
     async def validate_image_answer(self, user_id: str, image_bytes: bytes, image_processor) -> bool:
-        """Valida imagem enviada pelo usuário"""
+        """Valida imagem enviada pelo usuário - VERSÃO CORRIGIDA"""
         if user_id not in self.players or not self.players[user_id]['answered_text']:
+            print("❌ Usuário não autorizado para envio de imagem")
             return False
         
         place = self.players[user_id]['current_place']
         if not place:
+            print("❌ Lugar atual não definido")
             return False
         
-        # Por enquanto, vamos aceitar qualquer imagem para teste
-        print("📸 Validação de imagem - ACEITANDO QUALQUER IMAGEM PARA TESTE")
-        is_correct = True  # Temporário para teste
+        print(f"🎯 Validando imagem para: {place.get('id')} - {place.get('tags', [])[0] if place.get('tags') else 'Unknown'}")
+        
+        is_correct = await image_processor.validate_user_image(image_bytes, place)
         
         if is_correct:
             self.players[user_id]['score'] += 1
+            print(f"✅ Imagem aceita! Pontuação: {self.players[user_id]['score']}")
+        else:
+            print(f"❌ Imagem rejeitada! Pontuação mantém: {self.players[user_id]['score']}")
         
         # Reset para próxima pergunta
         self.players[user_id]['current_stage'] = 0
