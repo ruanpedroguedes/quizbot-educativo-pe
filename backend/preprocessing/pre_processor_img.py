@@ -34,7 +34,7 @@ class LightImageProcessor:
             return None
     
     async def validate_user_image(self, user_image_bytes: bytes, correct_place_data: dict) -> bool:
-        """Valida se a imagem do usuário corresponde ao local correto - VERSÃO CORRIGIDA"""
+        """Valida se a imagem do usuário corresponde ao local correto - VERSÃO RIGOROSA"""
         try:
             # Converter bytes da imagem do USUÁRIO para array
             user_image = Image.open(io.BytesIO(user_image_bytes))
@@ -49,13 +49,15 @@ class LightImageProcessor:
                 print("❌ Nenhuma imagem de referência encontrada")
                 return False
             
-            # Comparar imagens
-            similarity = await self.compare_images(user_array, reference_paths)
+            print(f"📍 Comparando com {len(reference_paths)} imagens de referência")
             
-            print(f"📊 Similaridade da imagem: {similarity:.2f}")
+            # Comparar imagens com múltiplas estratégias
+            similarity = await self.compare_images_rigorous(user_array, reference_paths)
             
-            # Ajustar threshold conforme necessidade
-            threshold = 0.4  # Pode ajustar para ser mais ou menos rigoroso
+            print(f"📊 Similaridade FINAL: {similarity:.3f}")
+            
+            # THRESHOLD MAIS RIGOROSO
+            threshold = 0.6  # Aumentado para ser mais exigente
             is_correct = similarity > threshold
             
             print(f"🎯 Resultado: {'✅ ACEITA' if is_correct else '❌ REJEITADA'} (threshold: {threshold})")
@@ -84,107 +86,176 @@ class LightImageProcessor:
     def _url_to_local_path(self, url: str) -> str:
         """Converte URL do GitHub em caminho local"""
         try:
-            if 'backend/imagens/' in url:
-                path_start = url.find('backend/imagens/')
+            if 'imagens' in url:
+                path_start = url.find('imagens')
                 if path_start != -1:
                     relative_path = url[path_start:].split('?')[0]
                     return relative_path
             
             # Fallback
             filename = url.split('/')[-1].split('?')[0]
-            return f"backend/imagens/{filename}"
+            return f"imagens/{filename}"
             
         except Exception as e:
             print(f"❌ Erro ao converter URL: {url} - {e}")
             return None
     
-    async def compare_images(self, user_image: np.ndarray, reference_paths: list) -> float:
-        """Compara imagem do usuário com imagens de referência locais - VERSÃO MELHORADA"""
-        user_features = self.extract_features(user_image)
-        
-        if user_features is None:
-            print("❌ Não foi possível extrair features da imagem do usuário")
-            return 0.0
-        
-        best_similarity = 0
-        successful_comparisons = 0
-        
-        print(f"🔍 Iniciando comparação com {len(reference_paths)} imagens de referência")
+    async def compare_images_rigorous(self, user_image: np.ndarray, reference_paths: list) -> float:
+        """Comparação RIGOROSA com múltiplas estratégias"""
+        similarities = []
         
         for i, ref_path in enumerate(reference_paths):
             ref_image = self.load_local_image(ref_path)
             if ref_image is not None:
-                ref_features = self.extract_features(ref_image)
+                # Estratégia 1: Similaridade de features combinadas
+                similarity1 = self._compare_features(user_image, ref_image)
                 
-                if ref_features is not None:
-                    # Calcular similaridade do cosseno
-                    similarity = cosine_similarity([user_features], [ref_features])[0][0]
-                    best_similarity = max(best_similarity, similarity)
-                    successful_comparisons += 1
-                    print(f"   📊 Ref {i+1}: {similarity:.3f} - {os.path.basename(ref_path)}")
+                # Estratégia 2: Similaridade de histograma de cores
+                similarity2 = self._compare_color_histograms(user_image, ref_image)
+                
+                # Estratégia 3: Similaridade estrutural (se disponível)
+                similarity3 = self._compare_structural_similarity(user_image, ref_image)
+                
+                # Combinar as similaridades
+                if similarity3 is not None:
+                    combined_similarity = (similarity1 + similarity2 + similarity3) / 3
                 else:
-                    print(f"   ⚠️  Ref {i+1}: Falha ao extrair features")
-            else:
-                print(f"   ❌ Ref {i+1}: Imagem não carregada")
+                    combined_similarity = (similarity1 + similarity2) / 2
+                    
+                similarities.append(combined_similarity)
+                
+                print(f"   🔍 Ref {i+1}: {combined_similarity:.3f} " +
+                    f"(F:{similarity1:.3f} C:{similarity2:.3f}" +
+                    (f" S:{similarity3:.3f})" if similarity3 is not None else ")"))
         
-        print(f"📈 Comparações bem-sucedidas: {successful_comparisons}/{len(reference_paths)}")
-        print(f"🏆 Melhor similaridade: {best_similarity:.3f}")
+        if not similarities:
+            return 0.0
         
-        return best_similarity if successful_comparisons > 0 else 0.0
+        # Retornar a melhor similaridade
+        best_similarity = max(similarities)
+        return best_similarity
+
+    def _compare_features(self, img1: np.ndarray, img2: np.ndarray) -> float:
+        """Compara usando features ORB + Histograma"""
+        features1 = self.extract_features(img1)
+        features2 = self.extract_features(img2)
+        
+        if features1 is None or features2 is None:
+            return 0.0
+        
+        # Calcular similaridade do cosseno
+        similarity = cosine_similarity([features1], [features2])[0][0]
+        
+        # Garantir que está entre 0 e 1
+        return max(0.0, min(1.0, similarity))
     
-    def extract_features(self, image: np.ndarray) -> np.ndarray:
-        """Extrai features da imagem - VERSÃO MAIS ROBUSTA"""
+    def _compare_color_histograms(self, img1: np.ndarray, img2: np.ndarray) -> float:
+        """Compara usando histogramas de cor"""
         try:
-            # Redimensionar para processamento mais rápido
+            # Converter para HSV
+            hsv1 = cv2.cvtColor(img1, cv2.COLOR_RGB2HSV)
+            hsv2 = cv2.cvtColor(img2, cv2.COLOR_RGB2HSV)
+            
+            # Calcular histogramas para cada canal
+            hist1_h = cv2.calcHist([hsv1], [0], None, [50], [0, 256])
+            hist1_s = cv2.calcHist([hsv1], [1], None, [50], [0, 256])
+            hist1_v = cv2.calcHist([hsv1], [2], None, [50], [0, 256])
+            
+            hist2_h = cv2.calcHist([hsv2], [0], None, [50], [0, 256])
+            hist2_s = cv2.calcHist([hsv2], [1], None, [50], [0, 256])
+            hist2_v = cv2.calcHist([hsv2], [2], None, [50], [0, 256])
+            
+            # Normalizar
+            hist1_h = cv2.normalize(hist1_h, hist1_h).flatten()
+            hist1_s = cv2.normalize(hist1_s, hist1_s).flatten()
+            hist1_v = cv2.normalize(hist1_v, hist1_v).flatten()
+            
+            hist2_h = cv2.normalize(hist2_h, hist2_h).flatten()
+            hist2_s = cv2.normalize(hist2_s, hist2_s).flatten()
+            hist2_v = cv2.normalize(hist2_v, hist2_v).flatten()
+            
+            # Calcular similaridades
+            similarity_h = cv2.compareHist(hist1_h, hist2_h, cv2.HISTCMP_CORREL)
+            similarity_s = cv2.compareHist(hist1_s, hist2_s, cv2.HISTCMP_CORREL)
+            similarity_v = cv2.compareHist(hist1_v, hist2_v, cv2.HISTCMP_CORREL)
+            
+            # Média das similaridades
+            avg_similarity = (similarity_h + similarity_s + similarity_v) / 3
+            
+            # Converter para escala 0-1 (cv2.compareHist retorna -1 a 1)
+            return (avg_similarity + 1) / 2
+            
+        except Exception as e:
+            print(f"❌ Erro ao comparar histogramas: {e}")
+            return 0.0
+
+    def _compare_structural_similarity(self, img1: np.ndarray, img2: np.ndarray) -> float:
+        """Compara usando similaridade estrutural (SSIM)"""
+        try:
+            # Redimensionar para o mesmo tamanho
+            height, width = 300, 300
+            img1_resized = cv2.resize(img1, (width, height))
+            img2_resized = cv2.resize(img2, (width, height))
+            
+            # Converter para escala de cinza
+            gray1 = cv2.cvtColor(img1_resized, cv2.COLOR_RGB2GRAY)
+            gray2 = cv2.cvtColor(img2_resized, cv2.COLOR_RGB2GRAY)
+            
+            # Calcular SSIM
+            from skimage.metrics import structural_similarity as ssim
+            similarity, _ = ssim(gray1, gray2, full=True)
+            
+            return max(0.0, similarity)
+            
+        except Exception as e:
+            print(f"⚠️  SSIM não disponível: {e}")
+            return None
+
+    def extract_features(self, image: np.ndarray) -> np.ndarray:
+        """Extrai features da imagem - VERSÃO OTIMIZADA"""
+        try:
+            # Redimensionar
             height, width = image.shape[:2]
             if height > 400 or width > 400:
                 scale = 400 / max(height, width)
-                new_width = int(width * scale)
-                new_height = int(height * scale)
-                image = cv2.resize(image, (new_width, new_height))
-            
-            # Converter para escala de cinza
-            gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+                new_size = (int(width * scale), int(height * scale))
+                image = cv2.resize(image, new_size)
             
             # Features ORB
+            gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
             keypoints, descriptors = self.orb.detectAndCompute(gray, None)
             
-            # Histograma de cores (HSV) - mais informativo
+            # Histograma de cores HSV
             hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
-            hist_hue = cv2.calcHist([hsv], [0], None, [50], [0, 256])
-            hist_sat = cv2.calcHist([hsv], [1], None, [50], [0, 256])
-            hist_val = cv2.calcHist([hsv], [2], None, [50], [0, 256])
+            hist_h = cv2.calcHist([hsv], [0], None, [30], [0, 256])
+            hist_s = cv2.calcHist([hsv], [1], None, [30], [0, 256])
+            hist_v = cv2.calcHist([hsv], [2], None, [30], [0, 256])
             
-            # Normalizar histogramas
-            hist_hue = cv2.normalize(hist_hue, hist_hue).flatten()
-            hist_sat = cv2.normalize(hist_sat, hist_sat).flatten()
-            hist_val = cv2.normalize(hist_val, hist_val).flatten()
+            # Normalizar e combinar
+            hist_h = cv2.normalize(hist_h, hist_h).flatten()
+            hist_s = cv2.normalize(hist_s, hist_s).flatten()
+            hist_v = cv2.normalize(hist_v, hist_v).flatten()
             
-            # Combinar todas as features
-            features_parts = []
+            features = []
+            features.extend(hist_h)
+            features.extend(hist_s)
+            features.extend(hist_v)
             
-            # Adicionar histogramas
-            features_parts.extend(hist_hue)
-            features_parts.extend(hist_sat)
-            features_parts.extend(hist_val)
-            
-            # Adicionar features ORB se disponíveis
+            # Adicionar descriptors ORB se disponíveis
             if descriptors is not None:
-                # Pegar os primeiros 100 descriptors ou a média
-                if len(descriptors) > 100:
-                    desc_subset = descriptors[:100].flatten()
-                else:
-                    desc_subset = descriptors.flatten()
-                features_parts.extend(desc_subset)
+                # Usar estatísticas dos descriptors (mais robusto)
+                desc_mean = np.mean(descriptors, axis=0)
+                desc_std = np.std(descriptors, axis=0)
+                features.extend(desc_mean)
+                features.extend(desc_std)
             
-            features = np.array(features_parts)
+            features_array = np.array(features)
             
-            # Verificar se features são válidas
-            if np.any(np.isnan(features)) or np.any(np.isinf(features)):
-                print("⚠️  Features inválidas detectadas")
+            # Verificar validade
+            if np.any(np.isnan(features_array)) or np.any(np.isinf(features_array)):
                 return None
                 
-            return features
+            return features_array
             
         except Exception as e:
             print(f"❌ Erro ao extrair features: {e}")
