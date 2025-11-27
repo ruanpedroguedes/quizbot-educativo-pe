@@ -182,30 +182,33 @@ class GameState:
         return self.players.get(user_id, {}).get('attempts', 0)
     
     async def validate_image_answer(self, user_id: str, image_bytes: bytes, image_processor) -> bool:
-        """Valida imagem enviada pelo usuário - VERSÃO CORRIGIDA"""
+        """Valida imagem enviada pelo usuário"""
         if user_id not in self.players or not self.players[user_id]['answered_text']:
-            print("❌ Usuário não autorizado para envio de imagem")
+            print(f"❌ Usuário {user_id} não autorizado para envio de imagem")
             return False
         
         place = self.players[user_id]['current_place']
         if not place:
-            print("❌ Lugar atual não definido")
+            print(f"❌ Lugar atual não definido para {user_id}")
             return False
         
         print(f"🎯 Validando imagem para: {place.get('id')} - {place.get('tags', [])[0] if place.get('tags') else 'Unknown'}")
         
+        # Validação da imagem
         is_correct = await image_processor.validate_user_image(image_bytes, place)
         
         if is_correct:
             self.players[user_id]['score'] += 1
             print(f"✅ Imagem aceita! Pontuação: {self.players[user_id]['score']}")
+            
+            # ✅ SÓ FAZ RESET SE ACERTOU
+            self.players[user_id]['current_stage'] = 0
+            self.players[user_id]['answered_text'] = False
+            self.players[user_id]['current_place'] = None
+            self.players[user_id]['attempts'] = 0
         else:
             print(f"❌ Imagem rejeitada! Pontuação mantém: {self.players[user_id]['score']}")
-        
-        # Reset para próxima pergunta
-        self.players[user_id]['current_stage'] = 0
-        self.players[user_id]['answered_text'] = False
-        self.players[user_id]['current_place'] = None
-        self.players[user_id]['attempts'] = 0
+            # ✅ NÃO FAZ RESET SE ERROU - permite nova tentativa!
+            # Mantém o estado atual para o usuário tentar novamente
         
         return is_correct

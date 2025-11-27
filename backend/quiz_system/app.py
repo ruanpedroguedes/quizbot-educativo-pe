@@ -86,14 +86,15 @@ class QuizSystem:
                     "next_action": "quiz_completed"
                 }
             else:
+                # ✅ Mensagem mais clara para tentar novamente
                 return {
                     "success": True,
                     "correct": False,
-                    "message": "📷 Esta foto não parece ser do local correto. Tente novamente!",
+                    "message": "📷 Esta foto não parece ser do local correto. Tente enviar outra foto!",
                     "score": self.game_state.get_player_score(user_id),
-                    "next_action": "retry_image"
+                    "next_action": "retry_image"  # ✅ Permite retry
                 }
-                
+                    
         except Exception as e:
             return {
                 "success": False,
