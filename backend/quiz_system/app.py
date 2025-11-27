@@ -1,28 +1,17 @@
 import random
 from typing import Dict, Optional
 from .game_state import GameState
-from preprocessing.pre_processor_img import LightImageProcessor
-from text_processor.pre_processor_text import LightTextProcessor
+from preprocessing.pre_processor_img import EfficientImageProcessor  # ✅ Atualizado
+from text_processor.pre_processor_text import LightTextProcessor     # ✅ Já atualizado
 
 class QuizSystem:
     def __init__(self):
         self.game_state = GameState()
-        self.image_processor = LightImageProcessor()
-        self.text_processor = LightTextProcessor()
-    
-    def initialize_player(self, user_id: str):
-        """Inicializa estado do jogador - MÉTODO QUE ESTAVA FALTANDO"""
-        self.players[user_id] = {
-            'score': 0,
-            'current_stage': 0,
-            'current_place': None,
-            'answered_text': False,
-            'attempts': 0
-        }
-        self.attempts_tracker[user_id] = 0
+        self.image_processor = EfficientImageProcessor()  # ✅ Nova classe
+        self.text_processor = LightTextProcessor()        # ✅ Já atualizada
     
     def start_quiz(self, user_id: str) -> Dict:
-        """Inicia um novo quiz para o usuário - VERSÃO CORRIGIDA"""
+        """Inicia um novo quiz para o usuário"""
         self.game_state.initialize_player(user_id)
         place = self.game_state.get_random_place(user_id)
         
@@ -190,4 +179,22 @@ class QuizSystem:
             return {
                 "success": False,
                 "error": f"Erro ao pular pergunta: {str(e)}"
+            }
+    
+    def get_system_info(self) -> Dict:
+        """Retorna informações sobre o sistema"""
+        try:
+            return {
+                "success": True,
+                "system_info": {
+                    "image_processor": self.image_processor.get_model_info(),
+                    "text_processor": "spaCy com fallback" if self.text_processor.use_spacy else "método simples",
+                    "total_players": len(self.game_state.players),
+                    "dataset_size": len(self.game_state.dataset)
+                }
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Erro ao obter informações do sistema: {str(e)}"
             }
