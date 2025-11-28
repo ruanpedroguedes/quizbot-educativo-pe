@@ -1,14 +1,14 @@
 import random
 from typing import Dict, Optional
 from .game_state import GameState
-from preprocessing.pre_processor_img import EfficientImageProcessor  # ✅ Atualizado
-from text_processor.pre_processor_text import LightTextProcessor     # ✅ Já atualizado
+from preprocessing.pre_processor_img import LightImageProcessor  # ✅ Versão original leve
+from text_processor.pre_processor_text import LightTextProcessor
 
 class QuizSystem:
     def __init__(self):
         self.game_state = GameState()
-        self.image_processor = EfficientImageProcessor()  # ✅ Nova classe
-        self.text_processor = LightTextProcessor()        # ✅ Já atualizada
+        self.image_processor = LightImageProcessor()  # ✅ Classe original leve
+        self.text_processor = LightTextProcessor()
     
     def start_quiz(self, user_id: str) -> Dict:
         """Inicia um novo quiz para o usuário"""
@@ -86,15 +86,14 @@ class QuizSystem:
                     "next_action": "quiz_completed"
                 }
             else:
-                # ✅ Mensagem mais clara para tentar novamente
                 return {
                     "success": True,
                     "correct": False,
                     "message": "📷 Esta foto não parece ser do local correto. Tente enviar outra foto!",
                     "score": self.game_state.get_player_score(user_id),
-                    "next_action": "retry_image"  # ✅ Permite retry
+                    "next_action": "retry_image"
                 }
-                    
+                
         except Exception as e:
             return {
                 "success": False,
@@ -188,8 +187,8 @@ class QuizSystem:
             return {
                 "success": True,
                 "system_info": {
-                    "image_processor": self.image_processor.get_model_info(),
-                    "text_processor": "spaCy com fallback" if self.text_processor.use_spacy else "método simples",
+                    "image_processor": "LightImageProcessor (ORB + Histogramas)",
+                    "text_processor": "spaCy com fallback" if hasattr(self.text_processor, 'use_spacy') and self.text_processor.use_spacy else "método simples",
                     "total_players": len(self.game_state.players),
                     "dataset_size": len(self.game_state.dataset)
                 }

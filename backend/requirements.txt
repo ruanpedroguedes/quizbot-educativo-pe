@@ -1,21 +1,14 @@
-# API e Servidor
-fastapi==0.100.0  # ✅ Versão mais compatível
-uvicorn==0.23.0   # ✅ Versão mais compatível
+fastapi==0.104.1
+uvicorn==0.24.0
 python-multipart==0.0.6
-
-# Processamento de Imagens (COM EFFICIENTNET)
 Pillow==10.1.0
 opencv-python-headless==4.8.1.78
 numpy==1.24.3
 scikit-learn==1.3.2
-tensorflow-cpu==2.13.0
-
-# Processamento de Texto
-spacy==3.7.0      # ✅ Versão mais compatível
+spacy==3.7.2
 https://github.com/explosion/spacy-models/releases/download/pt_core_news_md-3.7.0/pt_core_news_md-3.7.0-py3-none-any.whl
-
-# Utilitários
 requests==2.31.0
 unidecode==1.3.8
 aiofiles==23.2.1
 python-dotenv==1.0.0
+scikit-image==0.21.0  

@@ -3,11 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
 from quiz_system.app import QuizSystem
-from preprocessing.pre_processor_img import EfficientImageProcessor
 
 app = FastAPI(title="QuizBot Educativo PE - Light Version")
 
-image_processor = EfficientImageProcessor()
 
 # CORS
 app.add_middleware(
