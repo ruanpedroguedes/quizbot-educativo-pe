@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Escolha seu Personagem - QuizBot PE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="personagens.css">
+</head>
+<body>
+
+    <!-- Áudio de Fundo -->
+    <audio id="bg-music" autoplay loop>
+        <source src="assets/audio/chico_beat.m4a" type="audio/mpeg">
+    </audio> 
+
+    <div class="char-container">
+        <h1 class="char-title">Escolha seu Personagem</h1>
+        
+        <div class="char-grid">
+            <!-- Personagem 1 -->
+            <div class="char-card" onclick="selecionarPersonagem('João Frevo')">
+                <img src="assets/joaofrevo.png" class="char-img" alt="João Frevo">
+                <div class="char-name">João Frevo</div>
+                <button class="btn-select">Começar</button>
+            </div>
+
+            <!-- Personagem 2 -->
+            <div class="char-card" onclick="selecionarPersonagem('Maria Maracatu')">
+                <img src="assets/mariamaracatu.png" class="char-img" alt="Maria Maracatu">
+                <div class="char-name">Maria Maracatu</div>
+                <button class="btn-select">Começar</button>
+            </div>
+
+            <!-- Personagem 3 -->
+            <div class="char-card" onclick="selecionarPersonagem('Capivara Turista')">
+                <img src="assets/capivaraturista.png" class="char-img" alt="Capivara Turista">
+                <div class="char-name">Capivara Turista</div>
+                <button class="btn-select">Começar</button>
+            </div>
+        </div>
+
+        <br><br>
+        <button class="btn-back" onclick="window.location.href='login.html'">Voltar ao Login</button>
+    </div>
+
+    <script>
+        function selecionarPersonagem(nome) {
+            // Salva a escolha para a próxima página usar
+            localStorage.setItem('personagem_escolhido', nome);
+            localStorage.setItem('pontuacao_atual', 0); 
+            
+            window.location.href = "chatbot.html";
+        }
+    </script>
+</body>
+</html>

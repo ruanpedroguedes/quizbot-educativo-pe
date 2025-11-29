@@ -1,0 +1,61 @@
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+
+body {
+    /* Imagem de Fundo */
+    background-image: url('assets/marcozero.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed; 
+    
+    color: #FFFFFF;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+body::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(0, 0, 0, 0.75); 
+}
+
+.login-card {
+    background-color: #1E1E1E;
+    padding: 50px;
+    border-radius: 20px;
+    width: 100%;
+    max-width: 450px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    text-align: center;
+}
+
+.login-card h1 { font-size: 24px; margin-bottom: 10px; }
+.login-card p { color: #B0B0B0; margin-bottom: 30px; }
+
+.input-group { text-align: left; margin-bottom: 20px; }
+.input-group label { color: #B0B0B0; font-size: 14px; display: block; margin-bottom: 8px; }
+
+.input-group input {
+    width: 100%; padding: 15px; background-color: #333;
+    border: 1px solid #333; border-radius: 10px; color: white;
+    font-size: 16px; outline: none; transition: 0.3s;
+}
+.input-group input:focus { border-color: #4B00E0; }
+
+.btn-primary {
+    background: linear-gradient(90deg, #4B00E0, #8B5CF6);
+    color: white; border: none; width: 100%; padding: 15px;
+    border-radius: 10px; font-size: 16px; font-weight: bold;
+    cursor: pointer; transition: transform 0.2s, opacity 0.2s;
+}
+.btn-primary:hover { opacity: 0.9; transform: translateY(-2px); }
+
+.login-footer {
+    margin-top: 25px; display: flex; justify-content: space-between;
+    align-items: center; font-size: 13px; color: #B0B0B0;
+}
+.login-footer a { color: #8B5CF6; text-decoration: none; }
