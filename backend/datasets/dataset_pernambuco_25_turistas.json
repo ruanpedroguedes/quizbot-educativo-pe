@@ -1,0 +1,377 @@
+[
+  {
+    "id": 1,
+    "pergunta": "Vale a pena visitar o Marco Zero no Recife?",
+    "contexto": "O Marco Zero fica no Recife Antigo e é um dos pontos mais famosos da cidade. Lá tem a vista do rio, bares, feirinhas e muita arte ao redor.",
+    "imagem": ["https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/marco_zero_1.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/marco_zero_2.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/marco_zero_3.jpeg?raw=true"],
+    "tags": [
+      "recife",
+      "marco zero",
+      "passeio",
+      "turismo",
+      "recife antigo"
+    ]
+  },
+  {
+    "id": 2,
+    "pergunta": "O que tem pra ver em Olinda?",
+    "contexto": "Olinda é uma cidade vizinha ao Recife, cheia de ladeiras, casinhas coloridas, igrejas antigas e uma vista linda pro mar.",
+    "imagem": ["https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/olinda_1.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/olinda_2.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/olinda_3.jpeg?raw=true"],
+    "tags": [
+      "olinda",
+      "história",
+      "turismo",
+      "cultura",
+      "igrejas"
+    ]
+  },
+  {
+    "id": 3,
+    "pergunta": "Onde fica Porto de Galinhas?",
+    "contexto": "Porto de Galinhas fica em Ipojuca, a cerca de 60 km do Recife. É famosa pelas piscinas naturais e o mar bem azul.",
+    "imagem": ["https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/porto_de_galinhas_1.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/porto_de_galinhas_2.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/porto_de_galinhas_3.jpeg?raw=true"],
+    "tags": [
+      "porto de galinhas",
+      "praia",
+      "turismo",
+      "natureza",
+      "litoral"
+    ]
+  },
+  {
+    "id": 4,
+    "pergunta": "O que tem pra fazer em Fernando de Noronha?",
+    "contexto": "Fernando de Noronha é um arquipélago com praias paradisíacas e águas cristalinas. É ótimo pra mergulhar e ver golfinhos.",
+    "imagem": ["https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/fernando_de_noronha_1.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/fernando_de_noronha_2.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/fernando_de_noronha_3.jpeg?raw=true"],
+    "tags": [
+      "noronha",
+      "praia",
+      "mergulho",
+      "turismo",
+      "natureza"
+    ]
+  },
+  {
+    "id": 5,
+    "pergunta": "O que tem de bom em Caruaru?",
+    "contexto": "Caruaru é conhecida pelo São João, comidas típicas e pela Feira de Caruaru, onde se encontra de tudo um pouco.",
+    "imagem": ["https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/caruaru_1.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/caruaru_2.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/caruaru_3.jpeg?raw=true"],
+    "tags": [
+      "caruaru",
+      "feira",
+      "forró",
+      "festa",
+      "são joão"
+    ]
+  },
+  {
+    "id": 6,
+    "pergunta": "O que é o Museu Cais do Sertão?",
+    "contexto": "O Cais do Sertão é um museu moderno no Recife Antigo que mostra a cultura e a vida do povo sertanejo de forma interativa.",
+    "imagem": ["https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/museu_cais_do_sertão_1.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/museu_cais_do_sertão_2.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/museu_cais_do_sertão_3.jpeg?raw=true"],
+    "tags": [
+      "museu",
+      "recife",
+      "sertão",
+      "cultura",
+      "história"
+    ]
+  },
+  {
+    "id": 7,
+    "pergunta": "O que tem pra ver na Oficina Francisco Brennand?",
+    "contexto": "A Oficina Brennand é um lugar cheio de esculturas e arte do artista Francisco Brennand, num espaço bonito e tranquilo no Recife.",
+    "imagem": ["https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/oficina_francisco_brennand_1.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/oficina_francisco_brennand_2.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/oficina_francisco_brennand_3.jpeg?raw=true"],
+    "tags": [
+      "arte",
+      "recife",
+      "brennand",
+      "museu",
+      "escultura"
+    ]
+  },
+  {
+    "id": 8,
+    "pergunta": "O Teatro de Santa Isabel é aberto pra visitação?",
+    "contexto": "O Teatro de Santa Isabel é um dos mais antigos do Brasil e fica no centro do Recife. É possível fazer visitas guiadas e ver apresentações.",
+    "imagem": ["https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/teatro_de_santa_isabel_1.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/teatro_de_santa_isabel_2.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/teatro_de_santa_isabel_3.jpeg?raw=true"],
+    "tags": [
+      "teatro",
+      "recife",
+      "história",
+      "cultura",
+      "visita"
+    ]
+  },
+  {
+    "id": 9,
+    "pergunta": "O que acontece no Festival de Inverno de Garanhuns?",
+    "contexto": "O Festival de Inverno de Garanhuns tem shows, arte e gastronomia. A cidade é fria e cheia de paisagens bonitas.",
+    "imagem": ["https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/garanhuns_1.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/garanhuns_2.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/garanhuns_3.jpeg?raw=true"],
+    "tags": [
+      "garanhuns",
+      "festival",
+      "inverno",
+      "música",
+      "turismo"
+    ]
+  },
+  {
+    "id": 10,
+    "pergunta": "Tem o que fazer em Petrolina?",
+    "contexto": "Petrolina é cortada pelo Rio São Francisco e tem passeios de barco, vinícolas e uma bela orla pra caminhar.",
+    "imagem": ["https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/petrolina_1.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/petrolina_2.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/petrolina_3.jpeg?raw=true"],
+    "tags": [
+      "petrolina",
+      "rio são francisco",
+      "vinho",
+      "sertão",
+      "turismo"
+    ]
+  },
+  {
+    "id": 11,
+    "pergunta": "O que ver em Serra Talhada?",
+    "contexto": "Serra Talhada é conhecida como a terra de Lampião. Lá tem museus, cultura sertaneja e eventos regionais.",
+    "imagem": ["https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/serra_talhada_1.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/serra_talhada_2.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/serra_talhada_3.jpeg?raw=true"],
+    "tags": [
+      "serra talhada",
+      "lampião",
+      "história",
+      "sertão",
+      "cultura"
+    ]
+  },
+  {
+    "id": 12,
+    "pergunta": "Triunfo é uma cidade boa pra visitar?",
+    "contexto": "Triunfo é uma cidade fria no Sertão, com casarões antigos, lagoas e um teleférico que dá uma vista linda.",
+    "imagem": ["https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/triunfo_1.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/triunfo_2.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/triunfo_3.jpeg?raw=true"],
+    "tags": [
+      "triunfo",
+      "sertão",
+      "frio",
+      "história",
+      "turismo"
+    ]
+  },
+  {
+    "id": 13,
+    "pergunta": "O que tem de interessante em Goiana?",
+    "contexto": "Goiana tem praias bonitas, prédios antigos e uma forte presença cultural e religiosa.",
+    "imagem": ["https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/goiana_1.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/goiana_2.jpeg?raw=true"],
+    "tags": [
+      "goiana",
+      "praia",
+      "história",
+      "cultura",
+      "turismo"
+    ]
+  },
+  {
+    "id": 14,
+    "pergunta": "O que fazer em Arcoverde?",
+    "contexto": "Arcoverde é animada, com festas juninas, cultura popular e um povo muito acolhedor.",
+    "imagem": ["https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/arcoverde_1.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/arcoverde_2.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/arcoverde_3.jpeg?raw=true"],
+    "tags": [
+      "arcoverde",
+      "são joão",
+      "cultura",
+      "sertão",
+      "festa"
+    ]
+  },
+  {
+    "id": 15,
+    "pergunta": "Tem praia boa na Ilha de Itamaracá?",
+    "contexto": "Sim! A Ilha de Itamaracá tem praias calmas, o Forte Orange e o Projeto Peixe-Boi, ótimo pra visitar com a família.",
+    "imagem": ["https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/itamaracá_1.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/itamaracá_2.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/itamaracá_3.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/itamaracá_4.jpeg?raw=true"],
+    "tags": [
+      "itamaracá",
+      "praia",
+      "forte orange",
+      "turismo",
+      "natureza"
+    ]
+  },
+  {
+    "id": 16,
+    "pergunta": "O que tem no Engenho Massangana?",
+    "contexto": "O Engenho Massangana é um museu no Cabo de Santo Agostinho que conta a história da infância de Joaquim Nabuco.",
+    "imagem": ["https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/engenho_massangana_1.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/engenho_massangana_2.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/engenho_massangana_3.jpeg?raw=true"],
+    "tags": [
+      "engenho massangana",
+      "museu",
+      "história",
+      "cultura",
+      "nabuco"
+    ]
+  },
+  {
+    "id": 17,
+    "pergunta": "Bonito tem cachoeiras abertas pra banho?",
+    "contexto": "Sim! Bonito é cheio de cachoeiras, trilhas e rios limpos, perfeito pra quem curte natureza e aventura.",
+    "imagem": ["https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/bonito_1.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/bonito_2.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/bonito_3.jpeg?raw=true"],
+    "tags": [
+      "bonito",
+      "natureza",
+      "cachoeira",
+      "ecoturismo",
+      "aventura"
+    ]
+  },
+  {
+    "id": 18,
+    "pergunta": "O que são os Papangus de Bezerros?",
+    "contexto": "Os Papangus são foliões mascarados típicos do Carnaval de Bezerros, uma tradição divertida e colorida.",
+    "imagem": ["https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/bezerros_1.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/bezerros_2.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/bezerros_3.jpeg?raw=true"],
+    "tags": [
+      "bezerros",
+      "carnaval",
+      "papangus",
+      "festa",
+      "tradição"
+    ]
+  },
+  {
+    "id": 19,
+    "pergunta": "O Instituto Ricardo Brennand vale a visita?",
+    "contexto": "Vale sim! O Instituto Ricardo Brennand tem obras de arte, esculturas e um castelo incrível em meio à natureza.",
+    "imagem": ["https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/instituto_ricardo_brennand_1.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/instituto_ricardo_brennand_2.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/instituto_ricardo_brennand_3.jpeg?raw=true"],
+    "tags": [
+      "ricardo brennand",
+      "arte",
+      "museu",
+      "recife",
+      "turismo"
+    ]
+  },
+  {
+    "id": 20,
+    "pergunta": "A Praia de Boa Viagem é boa pra banho?",
+    "contexto": "A Praia de Boa Viagem tem águas mornas e protegidas por arrecifes. É ótima pra caminhar e relaxar.",
+    "imagem": ["https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/boa_viagem_1.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/boa_viagem_2.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/boa_viagem_3.jpeg?raw=true"],
+    "tags": [
+      "boa viagem",
+      "praia",
+      "recife",
+      "turismo",
+      "litoral"
+    ]
+  },
+  {
+    "id": 21,
+    "pergunta": "O que fazer em Gravatá no inverno?",
+    "contexto": "Gravatá é uma cidade serrana com clima agradável, boas pousadas e festas de inverno com música e comida típica.",
+    "imagem": ["https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/gravatá_1.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/gravatá_2.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/gravatá_3.jpeg?raw=true"],
+    "tags": [
+      "gravata",
+      "inverno",
+      "serra",
+      "turismo",
+      "gastronomia"
+    ]
+  },
+  {
+    "id": 22,
+    "pergunta": "O que tem pra ver no Vale do Catimbau?",
+    "contexto": "O Vale do Catimbau, em Buíque, tem trilhas, formações rochosas e pinturas antigas nas pedras.",
+    "imagem": ["https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/vale_do_catimbau_1.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/vale_do_catimbau_2.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/vale_do_catimbau_3.jpeg?raw=true"],
+    "tags": [
+      "vale do catimbau",
+      "natureza",
+      "aventura",
+      "trilha",
+      "buíque"
+    ]
+  },
+  {
+    "id": 23,
+    "pergunta": "O que tem pra fazer em Vitória de Santo Antão?",
+    "contexto": "Vitória de Santo Antão tem engenhos, boas comidas e é conhecida pela produção da cachaça Pitú.",
+    "imagem": ["https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/vitória_de_santo_antão_1.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/vitória_de_santo_antão_2.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/vitória_de_santo_antão_3.jpeg?raw=true"],
+    "tags": [
+      "vitória de santo antão",
+      "cachaça",
+      "engenho",
+      "história",
+      "turismo"
+    ]
+  },
+  {
+    "id": 24,
+    "pergunta": "O que é o Sertão do Pajeú?",
+    "contexto": "O Sertão do Pajeú é uma região cheia de poetas, cultura e música. É o coração do sertão pernambucano.",
+    "imagem": ["https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/sertão_do_pajeú_1.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/sertão_do_pajeú_2.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/sertão_do_pajeú_3.jpeg?raw=true"],
+    "tags": [
+      "pajeú",
+      "sertão",
+      "poesia",
+      "repente",
+      "cultura"
+    ]
+  },
+  {
+    "id": 25,
+    "pergunta": "Itapissuma tem comida boa?",
+    "contexto": "Sim! Itapissuma é conhecida pelos pratos com frutos do mar frescos e pelas paisagens à beira do mangue.",
+    "imagem": ["https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/itapissuma_1.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/itapissuma_2.jpeg?raw=true",
+    "https://github.com/ruanpedroguedes/quizbot-educativo-pe/blob/main/backend/imagens/itapissuma_3.jpeg?raw=true"],
+    "tags": [
+      "itapissuma",
+      "frutos do mar",
+      "gastronomia",
+      "mangue",
+      "litoral"
+    ]
+  }
+]

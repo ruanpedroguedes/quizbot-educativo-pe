@@ -31,5 +31,3 @@ Criar um **chatbot com inteligência artificial e interface web interativa**, qu
 | ------------- | ----------------------------------- | ------------------------------ |
 | **Entrega 1** | 03/11 (Turma 30) / 04/11 (Turma 29) | Protótipo inicial              |
 | **Entrega 2** | 01/12 (Turma 30) a 27/12 (Turma 29) | Aplicativo completo (NLP + CV) |
-
-
