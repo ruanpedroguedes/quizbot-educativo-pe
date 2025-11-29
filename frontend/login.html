@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - QuizBot PE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="login.css">
+</head>
+<body>
+     <!-- Áudio de Fundo -->
+    <audio id="bg-music" autoplay loop>
+        <source src="assets/audio/chico_beat.m4a" type="audio/mpeg">
+    </audio>
+
+    <div class="login-card">
+        <h1>Bem vindo jogador</h1>
+        <p>Vamos turistar por Pernambuco?</p>
+        
+        <div class="input-group">
+            <label>E-mail ou nome de usuário</label>
+            <input type="text" placeholder="Digite seu usuário" id="login-user">
+        </div>
+        
+        <div class="input-group">
+            <label>Senha</label>
+            <input type="password" placeholder="Digite sua senha">
+        </div>
+
+        <button class="btn-primary" onclick="fazerLogin()">Entrar</button>
+
+        <div class="login-footer">
+            <span>Não possui conta? <a href="#">Cadastre-se</a></span>
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/Bandeira_de_Pernambuco.svg/64px-Bandeira_de_Pernambuco.svg.png" width="30" alt="Bandeira PE">
+        </div>
+    </div>
+
+    <script>
+        
+        localStorage.clear();
+
+        function fazerLogin() {
+           
+            window.location.href = "personagens.html";
+        }
+    </script>
+</body>
+</html>
