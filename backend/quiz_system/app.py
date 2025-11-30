@@ -1,28 +1,17 @@
 import random
 from typing import Dict, Optional
 from .game_state import GameState
-from preprocessing.pre_processor_img import LightImageProcessor
+from preprocessing.pre_processor_img import LightImageProcessor  # ✅ Versão original leve
 from text_processor.pre_processor_text import LightTextProcessor
 
 class QuizSystem:
     def __init__(self):
         self.game_state = GameState()
-        self.image_processor = LightImageProcessor()
+        self.image_processor = LightImageProcessor()  # ✅ Classe original leve
         self.text_processor = LightTextProcessor()
     
-    def initialize_player(self, user_id: str):
-        """Inicializa estado do jogador - MÉTODO QUE ESTAVA FALTANDO"""
-        self.players[user_id] = {
-            'score': 0,
-            'current_stage': 0,
-            'current_place': None,
-            'answered_text': False,
-            'attempts': 0
-        }
-        self.attempts_tracker[user_id] = 0
-    
     def start_quiz(self, user_id: str) -> Dict:
-        """Inicia um novo quiz para o usuário - VERSÃO CORRIGIDA"""
+        """Inicia um novo quiz para o usuário"""
         self.game_state.initialize_player(user_id)
         place = self.game_state.get_random_place(user_id)
         
@@ -100,7 +89,7 @@ class QuizSystem:
                 return {
                     "success": True,
                     "correct": False,
-                    "message": "📷 Esta foto não parece ser do local correto. Tente novamente!",
+                    "message": "📷 Esta foto não parece ser do local correto. Tente enviar outra foto!",
                     "score": self.game_state.get_player_score(user_id),
                     "next_action": "retry_image"
                 }
@@ -190,4 +179,22 @@ class QuizSystem:
             return {
                 "success": False,
                 "error": f"Erro ao pular pergunta: {str(e)}"
+            }
+    
+    def get_system_info(self) -> Dict:
+        """Retorna informações sobre o sistema"""
+        try:
+            return {
+                "success": True,
+                "system_info": {
+                    "image_processor": "LightImageProcessor (ORB + Histogramas)",
+                    "text_processor": "spaCy com fallback" if hasattr(self.text_processor, 'use_spacy') and self.text_processor.use_spacy else "método simples",
+                    "total_players": len(self.game_state.players),
+                    "dataset_size": len(self.game_state.dataset)
+                }
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Erro ao obter informações do sistema: {str(e)}"
             }

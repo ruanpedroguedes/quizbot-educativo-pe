@@ -1,6 +1,8 @@
 import re
 import string
 from unidecode import unidecode
+import spacy
+import numpy as np
 
 class LightTextProcessor:
     def __init__(self):
@@ -8,9 +10,18 @@ class LightTextProcessor:
                               'de', 'do', 'da', 'dos', 'das', 'em', 'no', 'na', 
                               'nos', 'nas', 'por', 'para', 'com', 'sem', 'que',
                               'é', 'são', 'no', 'na', 'em'])
+        
+        # Carrega o modelo spaCy em português (~40MB)
+        try:
+            self.nlp = spacy.load("pt_core_news_md")
+            self.use_spacy = True
+            print("✅ spaCy carregado com sucesso!")
+        except OSError:
+            print("❌ Modelo spaCy não encontrado. Usando fallback simples.")
+            self.use_spacy = False
     
     def clean_text(self, text: str) -> str:
-        """Limpa e normaliza texto - VERSÃO MAIS PERMISSIVA"""
+        """Limpa e normaliza texto"""
         if not text:
             return ""
         
@@ -31,9 +42,9 @@ class LightTextProcessor:
         
         return text
     
-    def validate_answer(self, user_answer: str, correct_answers: list, threshold: float = 0.4) -> bool:
-        """Valida se a resposta do usuário está correta - VERSÃO PARA TAGS"""
-        print(f"🔍 VALIDAÇÃO COM TAGS:")
+    def validate_answer(self, user_answer: str, correct_answers: list, threshold: float = 0.7) -> bool:
+        """Valida resposta usando spaCy com word vectors"""
+        print(f"🔍 VALIDAÇÃO:")
         print(f"   Usuário: '{user_answer}'")
         print(f"   Corretas: {correct_answers}")
         
@@ -42,45 +53,63 @@ class LightTextProcessor:
             print("   ⚠️  ACEITO (sem respostas válidas no dataset)")
             return True
         
-        user_clean = self.clean_text(user_answer)
-        print(f"   Usuário limpo: '{user_clean}'")
+        # Se spaCy disponível, usa método inteligente
+        if self.use_spacy:
+            return self._validate_with_spacy(user_answer, correct_answers, threshold)
+        else:
+            # Fallback para método simples
+            return self._validate_simple(user_answer, correct_answers, 0.4)
+    
+    def _validate_with_spacy(self, user_answer: str, correct_answers: list, threshold: float) -> bool:
+        """Valida usando spaCy com word vectors"""
+        print("   🧠 Usando spaCy com word vectors...")
         
-        # Estratégia 1: Verificação exata (incluindo variações)
+        # Processar resposta do usuário
+        user_doc = self.nlp(user_answer)
+        
+        best_similarity = 0
+        for correct_answer in correct_answers:
+            if not correct_answer.strip():
+                continue
+                
+            # Processar resposta correta
+            correct_doc = self.nlp(correct_answer)
+            
+            # Similaridade usando word vectors do spaCy
+            similarity = user_doc.similarity(correct_doc)
+            best_similarity = max(best_similarity, similarity)
+            
+            print(f"   ➡️ '{user_answer}' vs '{correct_answer}': {similarity:.3f}")
+            
+            if similarity >= threshold:
+                print(f"   ✅ ACEITO (similaridade: {similarity:.3f})")
+                return True
+        
+        print(f"   ❌ REJEITADO (melhor: {best_similarity:.3f}, threshold: {threshold})")
+        return best_similarity >= threshold
+    
+    def _validate_simple(self, user_answer: str, correct_answers: list, threshold: float) -> bool:
+        """Método simples de fallback"""
+        print("   ⚡ Usando método simples (fallback)...")
+        
+        user_clean = self.clean_text(user_answer)
+        
+        # Estratégia 1: Verificação exata
         for correct in correct_answers:
             if not correct.strip():
                 continue
                 
             correct_clean = self.clean_text(correct)
-            print(f"   ➡️ Comparando: '{user_clean}' vs '{correct_clean}'")
             
-            # Verificação exata
             if user_clean == correct_clean:
                 print(f"   ✅ ACERTO EXATO")
                 return True
             
-            # Verificação parcial (um contém o outro)
             if user_clean in correct_clean or correct_clean in user_clean:
                 print(f"   ✅ ACERTO PARCIAL (contém)")
                 return True
         
-        # Estratégia 2: Palavras-chave em comum (para nomes compostos)
-        user_words = set(user_clean.split())
-        for correct in correct_answers:
-            if not correct.strip():
-                continue
-                
-            correct_clean = self.clean_text(correct)
-            correct_words = set(correct_clean.split())
-            
-            # Encontrar palavras significativas em comum
-            common_words = user_words.intersection(correct_words)
-            significant_common = [word for word in common_words if len(word) > 2]
-            
-            if significant_common:
-                print(f"   ✅ ACERTO POR PALAVRAS: {significant_common}")
-                return True
-        
-        # Estratégia 3: Similaridade tradicional
+        # Estratégia 2: Similaridade Jaccard
         best_similarity = 0
         for correct in correct_answers:
             if not correct.strip():
@@ -98,11 +127,10 @@ class LightTextProcessor:
         return False
     
     def calculate_similarity(self, user_answer: str, correct_answer: str) -> float:
-        """Calcula similaridade entre respostas"""
+        """Calcula similaridade Jaccard entre respostas (fallback)"""
         if not user_answer or not correct_answer:
             return 0.0
         
-        # Similaridade por Jaccard (palavras)
         user_set = set(user_answer.split())
         correct_set = set(correct_answer.split())
         
@@ -112,6 +140,18 @@ class LightTextProcessor:
         intersection = len(user_set.intersection(correct_set))
         union = len(user_set.union(correct_set))
         
-        similarity = intersection / union if union > 0 else 0
+        return intersection / union if union > 0 else 0
+    
+    def get_text_info(self, text: str):
+        """Método útil para debug: mostra informações do texto processado"""
+        if not self.use_spacy:
+            return "spaCy não disponível"
         
-        return similarity
+        doc = self.nlp(text)
+        info = {
+            'text': text,
+            'tokens': [token.text for token in doc],
+            'vector_shape': doc.vector.shape if doc.vector is not None else None,
+            'has_vectors': doc.has_vector
+        }
+        return info

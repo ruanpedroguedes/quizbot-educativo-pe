@@ -2,10 +2,10 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
-
 from quiz_system.app import QuizSystem
 
 app = FastAPI(title="QuizBot Educativo PE - Light Version")
+
 
 # CORS
 app.add_middleware(
