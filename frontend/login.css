@@ -1,12 +1,12 @@
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
 
 body {
-    /* Imagem de Fundo */
+    /* Imagem de Fundo Global */
     background-image: url('assets/marcozero.png');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    background-attachment: fixed; 
+    background-attachment: fixed;
     
     color: #FFFFFF;
     height: 100vh;
@@ -16,11 +16,13 @@ body {
     position: relative;
 }
 
+/* Máscara escura */
 body::before {
     content: '';
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
-    background-color: rgba(0, 0, 0, 0.75); 
+    background-color: rgba(0, 0, 0, 0.75);
+    z-index: 0; /* Alterado para 0 para garantir a ordem */
 }
 
 .login-card {
@@ -31,6 +33,10 @@ body::before {
     max-width: 450px;
     box-shadow: 0 20px 50px rgba(0,0,0,0.5);
     text-align: center;
+    
+    /* CORREÇÃO AQUI: Traz o card para frente da máscara */
+    position: relative;
+    z-index: 10;
 }
 
 .login-card h1 { font-size: 24px; margin-bottom: 10px; }

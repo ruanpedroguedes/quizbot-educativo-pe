@@ -11,7 +11,7 @@
 
     <!-- Áudio de Fundo -->
     <audio id="bg-music" autoplay loop>
-        <source src="assets/audio/chico_beat.m4a" type="audio/mpeg">
+        <source src="assets/audio/chico_beat.m4a" type="audio/mp4">
     </audio>
     
     <div class="final-card">
@@ -30,5 +30,6 @@
         const pontuacaoFinal = localStorage.getItem('pontuacao_atual') || 0;
         document.getElementById('score-final').innerText = pontuacaoFinal;
     </script>
+    <script src="audio.js"></script>
 </body>
 </html>
