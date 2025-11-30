@@ -1,28 +1,64 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Chatbot História de Pernambuco</title>
-    <link rel="stylesheet" href="css/style.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>QuizBot Educativo PE — Frontend</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="login-container">
-        <div class="login-box">
-            <img src="assets/logo-removebg-preview.png" alt="Logo" class="logo">
-            <h1>Chatbot - História de Pernambuco</h1>
-            <p>Explore o passado de forma interativa!</p>
-            
-            <div class="input-group">
-                <input type="text" id="username" placeholder="Digite seu nome">
-            </div>
-            <div class="input-group">
-                <input type="password" id="password" placeholder="Digite sua senha">
-            </div>
-            
-            <button onclick="entrar()">Entrar</button>
+  <div class="container">
+    <header class="topbar">
+      <h1>QuizBot Educativo PE</h1>
+      <div class="controls">
+        <input id="userIdInput" placeholder="Seu user_id (ex: ruan)" />
+        <button id="btnStart" class="primary">Iniciar Quiz</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <aside class="panel">
+        <h2>Controles</h2>
+        <div class="panel-section">
+          <button id="btnSkip" class="small">Pular pergunta</button>
+          <button id="btnProgress" class="small">Ver progresso</button>
+          <button id="btnLeaderboard" class="small">Leaderboard</button>
+          <button id="btnClear" class="small">Limpar conversa</button>
         </div>
-    </div>
-    <script src="js/main.js"></script>
+
+        <div class="panel-section">
+          <label for="imageInput">Enviar sua foto do local (para ganhar +1 se for igual)</label>
+          <input type="file" id="imageInput" accept="image/*" />
+          <button id="btnUpload" class="small">Enviar Imagem</button>
+          <div id="imgPreview" class="img-preview" style="display:none"><img src="" alt="preview"></div>
+        </div>
+
+        <div class="panel-section small muted">Base API: <code id="apiBaseArea">https://quizbot-educativo-pe.onrender.com</code></div>
+      </aside>
+
+      <section class="chat">
+        <div id="messages" class="messages" aria-live="polite"></div>
+
+        <div id="questionBox" class="question-box" style="display:none">
+          <div id="questionText" class="question-text"></div>
+          <div id="questionImage" class="question-image" style="display:none">
+            <img id="questionImgEl" src="" alt="imagem da pergunta">
+          </div>
+        </div>
+
+        <div class="composer">
+          <input type="text" id="textInput" placeholder="Digite sua resposta..." autocomplete="off" />
+          <button id="btnSend" class="primary">Enviar</button>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div id="status">Status: <span id="apiStatus">—</span></div>
+      <div id="score">Pontuação: 0</div>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
 </body>
 </html>
