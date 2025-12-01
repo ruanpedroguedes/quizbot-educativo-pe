@@ -19,7 +19,12 @@ const questionImage = document.getElementById("questionImage");
 const questionImgEl = document.getElementById("questionImgEl");
 const scoreEl = document.getElementById("score");
 
-// Funções auxiliares
+let rounds = 0;
+const maxRounds = 10;
+let waitingPhoto = false;
+let score = 0; 
+
+// --------------------------
 function getUserId() {
   return userIdInput.value.trim();
 }
@@ -31,58 +36,6 @@ function addMessage(role, text) {
   messages.appendChild(msg);
   messages.scrollTop = messages.scrollHeight;
 }
-function updateQuestion(data) {
-  console.log("API Response:", data);
-
-  questionBox.style.display = "block";
-
-  // Atualiza pontuação se existir
-  if (data.score !== undefined) {
-    scoreEl.textContent = `Pontuação: ${data.score}`;
-  }
-
-  // Se vier local da API (imagem e texto)
-  if (data.place_data) {
-    const pergunta = data.place_data.pergunta;
-    const imgUrl = data.place_data.imagem;
-
-    if (pergunta) {
-      questionText.textContent = pergunta;
-      questionText.style.display = "block";
-    }
-
-    if (imgUrl) {
-      questionImgEl.src = imgUrl; // URL ABSOLUTA — não alterar!
-      questionImage.style.display = "block";
-    } else {
-      questionImage.style.display = "none";
-    }
-
-    return; // já atualizamos pergunta e imagem
-  }
-
-  // Quando não tiver nova pergunta (só mensagens do sistema)
-  if (data.message) {
-    questionText.textContent = data.message;
-    questionImage.style.display = "none";
-  }
-}
-
-btnSkip.onclick = async () => {
-  const fd = new FormData();
-  fd.append("user_id", getUserId());
-
-  try {
-    const data = await postForm("/skip-question", fd);
-    console.log("Skip response:", data);
-    addMessage("bot", data.message ?? "Próxima pergunta!");
-    updateQuestion(data);
-  } catch (err) {
-    console.error("Skip error:", err);
-    addMessage("bot", "⚠ Erro ao pular. O backend não deixou!");
-  }
-};
-
 
 async function postForm(endpoint, formData) {
   const res = await fetch(`${API_BASE}${endpoint}`, {
@@ -92,48 +45,115 @@ async function postForm(endpoint, formData) {
   return res.json();
 }
 
-// --------------------------------------------------
-// Handlers
-// --------------------------------------------------
+// --------------------------
+function checkEndGame() {
+  if (score >= 3) {
+    addMessage("bot", `🎉 Parabéns! Você atingiu ${score} pontos e concluiu o quiz!`);
+    questionBox.style.display = "none";
+    waitingPhoto = false;
+    return true;
+  }
 
+  if (rounds >= maxRounds) {
+    addMessage("bot", `🏁 Fim do quiz! Você fez ${score} pontos!`);
+    questionBox.style.display = "none";
+    waitingPhoto = false;
+    return true;
+  }
+
+  return false;
+}
+
+// --------------------------
+function updateQuestion(data) {
+  console.log("API Response:", data);
+
+  if (data.place_data) {
+    waitingPhoto = false;
+    questionBox.style.display = "block";
+    questionText.style.display = "block";
+    questionText.textContent = data.place_data.pergunta ?? "";
+
+    if (data.place_data.imagem) {
+      questionImgEl.src = data.place_data.imagem;
+      questionImage.style.display = "block";
+    } else {
+      questionImage.style.display = "none";
+    }
+  }
+
+  // Quando acertar a foto — passa para nova rodada
+  if (data.correct === true && data.points_earned === 1) {
+    score++; // <-- Soma corretamente
+    scoreEl.textContent = `Pontuação: ${score}`;
+
+    rounds++;
+
+    if (checkEndGame()) return;
+
+    setTimeout(() => {
+      const fd = new FormData();
+      fd.append("user_id", getUserId());
+      postForm("/start-quiz", fd).then(updateQuestion);
+    }, 1500);
+  }
+}
+
+// --------------------------
 btnStart.onclick = async () => {
   const userId = getUserId();
   if (!userId) return alert("Digite seu user_id!");
+
+  rounds = 0;
+  score = 0;
+  scoreEl.textContent = `Pontuação: ${score}`;
+  waitingPhoto = false;
+
+  // 📌 Mensagem de boas-vindas antes do quiz iniciar
+  addMessage(
+    "bot",
+    "Olá Jogador!!! Bem vindo ao Quizbot PE 😁\nAqui neste Quiz você irá aprender sobre nossa terrinha Pernambuco/Recife com algumas perguntinhas simples pra você ficar mais sabido 😎👍!"
+  );
 
   const fd = new FormData();
   fd.append("user_id", userId);
 
   const data = await postForm("/start-quiz", fd);
-  addMessage("bot", data.message);
-  updateQuestion(data);
+  setTimeout(() => { // cria uma pausa para não misturar com a mensagem
+    addMessage("bot", data.message);
+    updateQuestion(data);
+  }, 1000);
 };
 
+
+// --------------------------
 btnSend.onclick = async () => {
   const userId = getUserId();
   const answer = textInput.value.trim();
   if (!answer) return;
+
+  addMessage("user", answer);
 
   const fd = new FormData();
   fd.append("user_id", userId);
   fd.append("text_answer", answer);
 
   const data = await postForm("/answer", fd);
-  addMessage("user", answer);
   addMessage("bot", data.message);
+
+  if (data.correct === true) waitingPhoto = true;
+
   updateQuestion(data);
   textInput.value = "";
 };
 
-btnSkip.onclick = async () => {
-  const fd = new FormData();
-  fd.append("user_id", getUserId());
-
-  const data = await postForm("/skip-question", fd);
-  addMessage("bot", data.message);
-  updateQuestion(data);
-};
-
+// --------------------------
 btnUpload.onclick = async () => {
+  if (!waitingPhoto) {
+    addMessage("bot", "📌 Primeiro acerte a pergunta!");
+    return;
+  }
+
   const file = imageInput.files[0];
   if (!file) return alert("Selecione uma imagem!");
 
@@ -146,20 +166,9 @@ btnUpload.onclick = async () => {
   updateQuestion(data);
 };
 
-btnLeaderboard.onclick = async () => {
-  const res = await fetch(`${API_BASE}/leaderboard`);
-  const data = await res.json();
-  addMessage("bot", JSON.stringify(data.leaderboard));
-};
-
-btnProgress.onclick = async () => {
-  const userId = getUserId();
-  const res = await fetch(`${API_BASE}/progress/${userId}`);
-  const data = await res.json();
-  addMessage("bot", JSON.stringify(data));
-};
+// -------------------------
 
 btnClear.onclick = () => {
-  messages.innerHTML = "";i
+  messages.innerHTML = "";
   questionBox.style.display = "none";
 };
