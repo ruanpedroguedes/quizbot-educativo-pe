@@ -113,5 +113,58 @@ python app.py
 cd ../frontend
 open index.html  # Windows: start index.html
 
+# Arquitetura do Sistema
+flowchart LR
+    U[Usuário<br>📱💻] --> FE[Frontend<br>HTML/CSS/JS]
+
+    FE --> API[(Flask API)]
+
+    subgraph Back-end
+        API --> GS[Game State<br>Regras e Pontuação]
+        API --> TP[Text Processor<br>Geração de perguntas e respostas]
+        API --> IP[Image Processor<br>Pré-processamento e YOLOv8]
+    end
+
+    IP --> YOLO[(YOLOv8<br>Reconhecimento do Local)]
+    TP --> NLP[(IA Generativa<br>Explicações Culturais)]
+    
+    YOLO --> DB[(Dataset PE<br>Imagens e Labels)]
+    DB --> YOLO
+
+    GS --> FE
+    NLP --> FE
+
+
+
+# Estrutura de Pastas
+📁 quizbot-educativo-pe/
+│
+├── backend/
+│   ├── datasets/
+│   │   └── dataset_pernambuco_25_turistico.csv
+│   ├── imagens/                   # Dataset visual para o modelo
+│   ├── preprocessing/
+│   │   └── pre_processor_img.py   # Pipeline de pré-processamento de imagem
+│   ├── quiz_system/
+│   │   ├── app.py                 # Lógica do quiz e rotas principais
+│   │   └── game_state.py          # Controle de pontuação e progresso
+│   ├── text_processor/
+│   │   ├── perguntas_respostas.py # Base de perguntas/explicações
+│   │   └── pre_processor_text.py  # Tratamento de texto
+│   ├── server.py                  # Servidor Flask (deploy)
+│   └── requirements.txt
+│
+├── frontend/
+│   ├── index.html
+│   ├── home.html
+│   ├── login.html
+│   ├── personagens.html
+│   ├── styles.css
+│   ├── app.js
+│   ├── assets/                    # Sons e imagens da interface
+│   └── audio.js
+│
+└── README.md
+
 
 
