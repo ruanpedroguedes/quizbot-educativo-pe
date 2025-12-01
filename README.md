@@ -36,18 +36,6 @@ O usuário envia uma **foto de um ponto turístico**, e o QuizBot tenta **adivin
 
 ---
 
-## ⚙️ Arquitetura do Sistema
-
-```mermaid
-flowchart LR
-A[Usuário no Frontend] --> B[Envio da Imagem]
-B --> C[API Flask]
-C --> D[Modelo YOLOv8 - Visão]
-C --> E[Modelo LLM - PLN/Explicação]
-D --> C
-E --> C
-C --> F[Retorno com Local + Explicação + Pontuação]
-F --> A
 
 💻 Tecnologias Utilizadas
 Backend
