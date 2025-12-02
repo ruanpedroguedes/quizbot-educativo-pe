@@ -11,7 +11,7 @@
 | Nome | Função Principal |
 |------|-----------------|
 | **Ruan Guedes** | Front-end Web / Documentação |
-| **Erick Carrasco** | Visão Computacional |
+| **Erick Carrasco** | Visão Computacional / Front-end Web |
 | **Antonio Lemos** | Banco de Dados / API |
 | **Gabriel Afonso** | Backend / Infra |
 | **João Lucas** | NLP / Backend |
