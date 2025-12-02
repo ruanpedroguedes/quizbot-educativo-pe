@@ -1,13 +1,13 @@
 import random
 from typing import Dict, Optional
 from .game_state import GameState
-from preprocessing.pre_processor_img import LightImageProcessor  # ✅ Versão original leve
+from preprocessing.pre_processor_img import LightImageProcessor 
 from text_processor.pre_processor_text import LightTextProcessor
 
 class QuizSystem:
     def __init__(self):
         self.game_state = GameState()
-        self.image_processor = LightImageProcessor()  # ✅ Classe original leve
+        self.image_processor = LightImageProcessor()  
         self.text_processor = LightTextProcessor()
     
     def start_quiz(self, user_id: str) -> Dict:
@@ -136,7 +136,7 @@ class QuizSystem:
                 [(user_id, data['score']) for user_id, data in players.items()],
                 key=lambda x: x[1],
                 reverse=True
-            )[:10]  # Top 10
+            )[:10]  
             
             return {
                 "success": True,

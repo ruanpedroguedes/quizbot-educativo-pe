@@ -201,14 +201,14 @@ class GameState:
             self.players[user_id]['score'] += 1
             print(f"✅ Imagem aceita! Pontuação: {self.players[user_id]['score']}")
             
-            # ✅ SÓ FAZ RESET SE ACERTOU
+            # SÓ FAZ RESET SE ACERTOU
             self.players[user_id]['current_stage'] = 0
             self.players[user_id]['answered_text'] = False
             self.players[user_id]['current_place'] = None
             self.players[user_id]['attempts'] = 0
         else:
             print(f"❌ Imagem rejeitada! Pontuação mantém: {self.players[user_id]['score']}")
-            # ✅ NÃO FAZ RESET SE ERROU - permite nova tentativa!
+            # NÃO FAZ RESET SE ERROU - permite nova tentativa!
             # Mantém o estado atual para o usuário tentar novamente
         
         return is_correct

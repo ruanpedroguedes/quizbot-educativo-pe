@@ -7,9 +7,9 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 class LightImageProcessor:
     def __init__(self):
-        self.orb = cv2.ORB_create(nfeatures=1000)  # Mais features
+        self.orb = cv2.ORB_create(nfeatures=1000)  
         self.image_cache = {}
-        self.threshold = 0.85  # MUITO rigoroso
+        self.threshold = 0.85  
     
     def load_local_image(self, image_path: str) -> np.ndarray:
         """Carrega imagem do sistema de arquivos local"""
@@ -51,7 +51,7 @@ class LightImageProcessor:
             
             print(f"📍 Comparando com {len(reference_paths)} imagens de referência")
             
-            # ✅ MÚLTIPLAS ESTRATÉGIAS de comparação
+            # MÚLTIPLAS EstratégiaS de comparação
             similarity = await self.compare_images_rigorous(user_array, reference_paths)
             
             print(f"📊 Similaridade FINAL: {similarity:.3f}")
@@ -72,16 +72,16 @@ class LightImageProcessor:
         for i, ref_path in enumerate(reference_paths):
             ref_image = self.load_local_image(ref_path)
             if ref_image is not None:
-                # ✅ ESTRATÉGIA 1: Similaridade de histogramas de cor
+                # Estratégia 1: Similaridade de histogramas de cor
                 similarity1 = self._compare_color_histograms(user_image, ref_image)
                 
-                # ✅ ESTRATÉGIA 2: Similaridade estrutural (SSIM)
+                # Estratégia 2: Similaridade estrutural (SSIM)
                 similarity2 = self._compare_structural_similarity(user_image, ref_image)
                 
-                # ✅ ESTRATÉGIA 3: Similaridade de features ORB
+                # Estratégia 3: Similaridade de features ORB
                 similarity3 = self._compare_orb_features(user_image, ref_image)
                 
-                # ✅ COMBINAR as 3 estratégias (MÉDIA PONDERADA)
+                # COMBINAR as 3 Estratégias (MÉDIA PONDERADA)
                 # Dá mais peso ao SSIM e ORB que são mais discriminativos
                 combined_similarity = (similarity1 * 0.3) + (similarity2 * 0.4) + (similarity3 * 0.3)
                 
@@ -97,7 +97,7 @@ class LightImageProcessor:
         return best_similarity
     
     def _compare_color_histograms(self, img1: np.ndarray, img2: np.ndarray) -> float:
-        """Compara histogramas de cor HSV - MAIS RIGOROSO"""
+        """Compara histogramas de cor HSV """
         try:
             # Redimensionar para mesmo tamanho
             img1_resized = cv2.resize(img1, (300, 300))
@@ -163,7 +163,7 @@ class LightImageProcessor:
             return 0.0
     
     def _compare_orb_features(self, img1: np.ndarray, img2: np.ndarray) -> float:
-        """Compara usando features ORB - MAIS RIGOROSO"""
+        """Compara usando features ORB """
         try:
             # Redimensionar
             img1_resized = cv2.resize(img1, (400, 400))
